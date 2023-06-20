@@ -1,0 +1,426 @@
+---
+title: "TUGAS KELOMPOK PRAKTIKUM 1 Statistika Sains Data"
+author: "KELOMPOK 5 RC" 
+output: html_document
+date: "2023-03-02"
+---
+### ANGGOTA KELOMPOK :
+#### PUTRI MAULIDA CHAIRANI_121450050
+#### SILVINA RIZQY NUR AULIYA_121450089
+#### NATANAEL OKTAVIANUS PARTAHAN SIHOMBING_121450107
+#### PUTRI DURROTUL SHOPIA_121450116
+#### RAFI FADHLILLAH_121450143
+
+## Sumber Data Jurnal
+#### Link : https://www.sciencedirect.com/science/article/pii/S235234092300080X
+$$ Abstrak $$
+Jurnal ini menyajikan kumpulan data grid pada real estat dan transportasi di 192 wilayah perkotaan di seluruh dunia, diperoleh dari Google Maps API dan pengikisan web situs web real estat. Untuk setiap kota sampel, data ini telah dikaitkan dengan kepadatan penduduk dan data tutupan lahan yang sesuai, masing-masing diambil dari data GHS POP dan ESA CCI, dan diagregasikan pada kisi resolusi 1 km, yang memungkinkan untuk analisis terpadu. Kumpulan data ini adalah yang pertama yang memasukkan data real estat dan transportasi yang dispasialkan dalam sampel besar kota-kota yang mencakup 800 juta orang di negara maju dan berkembang. Data ini dapat digunakan sebagai masukan untuk tujuan pemodelan perkotaan, pemodelan transportasi, atau perbandingan antar kota dalam bentuk perkotaan dan jaringan transportasi, dan memungkinkan analisis lebih lanjut, misalnya. urban sprawl, akses ke transportasi, atau pemerataan harga perumahan dan akses ke transportasi.
+
+# Data Wrangling
+## Package
+
+```{r}
+library(tidyverse)
+library(skimr)
+library(ggpubr)
+library(validate)
+```
+Pacakage :
+- Tidyverse\
+untuk manajemen data seperti impor dan ekspor data, pemodelan dan visualisasi data.\
+- Skimr\
+Untuk membuat ringkasan data.\
+- Ggpubr\
+Untuk memvisualisasikan data.\
+- validate\
+untuk mengecek kevalidan data
+```{r}
+data_trans <-read.csv("C:/Users/rafif/Downloads/TransportData.csv",stringsAsFactors = TRUE)
+glimpse(data_trans)
+```
+mengimport dataset berformat csv. stringsAsFactors digunakan supaya data-data yang bertipe character tidak diubah menjadi factor, dengan default TRUE. glimpse bertujuan untuk menampilkan tipe dan struktur data.
+
+```{r}
+summary(data_trans)
+```
+
+## Data Cleaning
+
+### Menghapus Missing Data
+
+```{r}
+skim_without_charts(data_trans)
+```
+fungsi skim_without_,charts untuk mengetahui kolom mana yang memiliki missing value yang harus dihapus. Berdasarkan informasi di atas, didapat kolom yang mengalami banyak missing value yaitu DurationTransit, Sehingga, kolom tersebut perlu dihapus dengan menggunakan na.omit seperti dibawah ini
+```{r}
+dt_res1 <- data_trans %>% 
+  #menghapus kolom DurationTransit
+  select(-DurationTransit) %>% 
+  #menghapus semua baris yang mengandung missing value
+  na.omit()
+```
+
+```{r}
+skim_without_charts(dt_res1)
+```
+
+### Koreksi Kesalahan pada Data
+
+```{r}
+skim_without_charts(data_trans)
+```
+
+```{r}
+dt_res2 <- data_trans %>% mutate(TransportSource=case_when(TransportSource=="goo" ~ "google",
+                                                  TransportSource=="bai" ~ "baidu",
+                                                  TRUE ~ TransportSource))
+dt_res2 %>% count(TransportSource)
+```
+Mendeklarasikan variabel baru yaitu dt_res2 yang berisi perubahan 2 kategori dengan perlakuan pada kolom TransportSource dimana goo menjadi google dan bai menjadi baidu
+
+### Koreksi Kevalidan Data
+
+```{r}
+duplikat <- sum(duplicated(data_trans))
+print(duplikat)
+```
+Mendefinisikan aturan validasi
+```{r}
+validasi <- validator(
+  "GridEPSG" = ~nilai > 0,
+  "ID" = ~n_distinct(ID) == nrow(data)
+)
+```
+Menggunakan aturan validasi pada data
+```{r}
+result <- voptions(validasi)
+print(result)
+```
+berdasarkan informasi diatas value yang ada adalah valid karena na.condition berisi false dan na.value berisi NA
+
+## Data Transformation
+
+```{r}
+gghistogram(data = data_trans,x = "dCenter",fill = "darkgreen")+
+  scale_y_continuous(expand = c(0,0))
+```
+
+```{r}
+dt_res4 = data_trans %>% 
+  mutate(log_dCenter=log(dCenter))
+```
+
+```{r}
+
+gghistogram(data = dt_res4,x = "log_dCenter",fill = "darkgreen")+
+  scale_y_continuous(expand = c(0,0))
+```
+Kita memviusalisasi jarak pusat bisnis dengan grafik histogram data yang dimana bertujuan juga untuk mengethaui distribusi awal. Dapat dilihat skewnessnya adalah positive skewness atau ekor ke kanan sebelum di transoformasi yang mana artinya penyebaran data lebih banyak ke kiri mean lebih besar dari median dan modus. Setelah di transformasi dengan fungsi mutate dan argumen log_dCenter dapat dilihat negative skewness, tujuan transformasi tersebut agar dapat mempermudah baca informasi dari visualisasi data tersebut
+
+## Data Normalization
+
+```{r}
+gghistogram(data = data_trans,x = "dCenter",fill = "steelblue")+
+  scale_y_continuous(expand = c(0,0))
+```
+
+### Dengan menggunakan Transformasi Z
+
+$$
+z = \frac{x-\bar{x}}{\text{sd}(x)}
+$$
+
+dengan sd(x) adalah standar deviasi dari variabel x. Hasil transformasi adalah variabel yang memiliki mean mendekati 0 dan standar deviasi mendekati 1
+
+```{r}
+dt_res5 = data_trans %>% 
+  mutate(dCenter=scale(dCenter, center=TRUE,scale=TRUE))
+```
+
+```{r}
+gghistogram(data = dt_res5,x = "dCenter",fill = "purple")+
+  scale_y_continuous(expand = c(0,0))
+```
+
+### Dengan Min-Max Scaling
+$$v = \frac{x-max x}{max x-min x}$$
+dengan max adalah nilai maksimum dari variabel x dan minx adalah nilai minimum dari variabel x. Hasil transformasi adalah variabel yang memiliki batas bawah 0 dan batas atas 1
+
+```{r}
+gghistogram(data = data_trans,x = "dCenter",fill = "red")+
+  scale_y_continuous(expand = c(0,0))
+```
+
+```{r}
+minMax <- function(x) {
+  (x - min(x)) / (max(x) - min(x))
+}
+```
+
+```{r}
+dt_res6 = data_trans %>% 
+  mutate(dCenter_mm= minMax(dCenter))
+```
+
+```{r}
+gghistogram(data = dt_res6,x = "dCenter_mm",
+            fill = "red")+
+  scale_y_continuous(expand = c(0,0))
+```
+
+Pada bagian normalisasi data ini, digunakan dua cara yaitu transformasi Z serta min-max scaling untuk data berdistribusi normal.2 2 cara tersebut ditransformasi terlebih dahulu agar lebih mudah dalam membaca informasi dengan perbedaan transformasi z nilai mean-nya mendekat 0 dengan standar deviasi mendekati 1 sedangkan min-max scaling ditransformasi dengan batas bawah 0 dan batas atas 1 kedua cara tersebut memvisualisasikan grafik histogram dengan positive skewness (dapat dilihat juga dengan transformasi z bahwa mean mendekati 0)
+
+# VISUALISASI DATA DENGAN EKSPLORASI DATA ANALISIS
+
+## Package
+
+```{r}
+library(tidyverse)
+library(DataExplorer)
+library(skimr)
+```
+DataExplorer  Untuk menyediakan fungsi yang dapat membantu proses analisis data.
+
+## Import Data
+## Memeriksa Gambaran Umum Data
+
+```{r}
+plot_intro(data = data_trans,
+           geom_label_args = list(size=2.5))
+```
+
+Catatan:\
+
+-   `plot_intro` merupakan fungsi yang berasal dari package `DataExplorer` dan argumen utamanya adalah object berbentuk `data.frame`.\
+-   argumen `geom_label_args` bisa diisi dengan opsi-opsi yang ada pada fungsi `geom_label` pada pacakge `ggplot2`.
+
+```{r}
+skim_without_charts(data = data_trans)
+```
+
+Catatan:\
+
+-   `skim_without_charts` merupakan fungsi yang berasal dari package skimr dan argumen utamanya adalah object berbentuk `data.frame`. Berdasarkan informasi diatas, kita tahu terdata beberapa kolom yang memiliki missing value. Namun hanya 4 kolom saja yang mengalami banyak missing value yaitu `DistanceDriving`,`DurationDriving`,`DistanceTransit`,`DurationTransit`.
+
+## Menangani Missing Value
+
+Dalam kasus ini kita akan menangani missing value dengan dua cara, yaitu\
+\
+1. Mereplace missing value pada kolom-kolom yang memiliki banyak sekali missing value (diatas 500)\
+2. Menghapus baris-baris yang mengandung missing value pada kolom-kolom yang memiliki sedikti missing value (dibawah 500)\
+Berikut dibawah ini adalah sintaks untuk melakukan replace missing value, khususnya jika datanya berupa `factor` atau `string`. Kemudian `na.omit` digunakan untuk menghapus semua baris yang mengandung missing value
+
+```{r}
+data_trans1 <- data_trans %>%
+  select(-ID) %>% 
+  mutate(DistanceDriving = ifelse(is.na(DistanceDriving), mean(DistanceDriving, na.rm = TRUE), DistanceDriving),
+         DurationDriving = ifelse(is.na(DurationDriving), mean(DurationDriving, na.rm = TRUE), DurationDriving),
+         DistanceTransit = ifelse(is.na(DistanceTransit), mean(DistanceTransit, na.rm = TRUE), DistanceTransit),
+         DurationTransit = ifelse(is.na(DurationTransit), mean(DurationTransit, na.rm = TRUE), DurationTransit),) %>% na.omit
+```
+
+Kemudian kita akan lihat kembali data yang sudah kita tangani missing valuenya
+
+```{r}
+plot_intro(data = data_trans1)
+```
+\
+Dari plot sebelumnya dapat diketahui bahwa masih ada missing obersavsi sebesar 9.6%, oleh karena itu kita menghilangkan dengan cara menseleksi dari baris ID lalu menghilangkan missing observations dengan fungsi ifelse dimana jika ada data na maka akan diremove dengan na.rm sehingga dapat dilihat pada plot diatas bahwa missing observations(hijau) dan all missing columns adalah 0% serta complete rows 100% agar lebih jelas lagi dapat dilihat pada pengecekan fungsi skim_without_chart di hawah ini
+
+```{r}
+skim_without_charts(data_trans1)
+```
+
+
+## Memeriksa Sebaran Data
+
+```{r}
+plot_histogram(data = data_trans1,nrow=3,ncol = 3,
+               geom_histogram_args = list(fill="green"),
+               ggtheme = theme_bw()
+)
+```
+
+```{r}
+plot_bar(data = data_trans1,ggtheme =theme_bw(),nrow = 1)
+```
+Dapat melihat sebaran datanya dengan histogram dan barplot dimana menunjukkan frekuensi dan nama kolom. histogram untuk sebaran data numerik dan barplot untuk sebaran data factor, pengelompokkan ini didasarkan dari skim_without_charts
+
+## Memeriksa Korelasi Peubah
+
+```{r}
+cor_mat <- cor(data_trans1%>%
+                 select_if(is.numeric),method = "spearman")
+cor_mat[upper.tri(cor_mat,diag = TRUE)] <- NA 
+cor_df <- cor_mat   %>%
+  as.data.frame() %>% 
+  rownames_to_column(var = "Var1") %>%
+  pivot_longer(names_to = "Var2",
+               values_to = "corr",
+               -Var1) %>% na.omit
+               
+cor_df %>% filter(abs(corr)>0.6) %>% arrange(desc(abs(corr)))
+```
+
+```{r}
+cor_df %>% filter(abs(corr)<=0.6)
+```
+
+```{r}
+cat_var_names <- data_trans1 %>% 
+  select(where(is.factor),dCenter) %>%
+  names
+cat_var_names
+```
+
+```{r}
+for(i in cat_var_names[-6]){
+  plot_boxplot(data = data_trans1 %>% 
+                 select(where(is.factor),dCenter),
+               geom_boxplot_args=list(fill="steelblue"),
+               by=i,ggtheme = theme_bw())
+}
+```
+Pada bagian terakhir ini digunakan boxplot untuk melihat hubungan pengaruh dCenter dengan masing2 peubah data atau kolom berupa factor, kita gunakan metode spearmen karena kita membandingkan bukan angka. Nilai korelasi yang berbanding terbalik dengan dCenter artinya nilai tersebut negatif sedangkan yang positif berbanding lurus dengan dCenter.
+
+
+# REGRESI LINIER BERGANDA
+## PACKAGE
+
+```{r}
+library(rsample)
+library(DataExplorer)
+library(sjPlot)
+library(lmtest)
+library(openxlsx)
+library(mlr3measures)
+```
+
+## DATA EXPLORATION
+
+### Memeriksa Sebaran Data
+Sebaran untuk peubah numerik
+
+```{r}
+plot_histogram(data = data_trans,nrow=3,ncol = 3,
+               geom_histogram_args = list(fill="steelblue"))
+```
+
+Transformasi Response
+
+```{r}
+data_trans$dCenter <- log(data_trans$dCenter)
+
+plot_histogram(data = data_trans,nrow=3,ncol = 3,
+               geom_histogram_args = list(fill="steelblue"))
+```
+
+Sebaran untuk peubah kategorik
+
+```{r}
+plot_bar(data = data_trans,nrow=3,ncol = 3
+)
+```
+
+### Model Regresi Linier
+
+```{r}
+regresi <- lm(formula = dCenter~.,data = data_trans)
+summary(regresi)
+```
+Melalui model regresi tersebut dapat dapat dilihat intersep populasi ($\beta_0$) sebesar -1.924e+02 dengan korelasinya mempengaruhi sebesar 82,01%
+
+```{r}
+plot_model(regresi,type = "est",sort.est = TRUE,
+           transform = "exp" )
+```
+
+```{r}
+plot_model(model = regresi,type="pred")
+```
+
+### Model Checking
+
+```{r}
+plot(regresi)
+```
+Untuk mengetahui toleransi dan nilai galat ketika di-cek menggunakan plot, didapatkan informasi bahwa galat tidak tersebar secara normal karena grafik tidak membentuk seperti kurva lonceng
+```{r}
+res <- residuals(regresi)
+```
+
+```{r}
+fBasics::jarqueberaTest(res)
+```
+
+```{r}
+fBasics::ksnormTest(res,)
+```
+
+```{r}
+print(fBasics::adTest(res))
+```
+Uji normalitas ini dilakukan untuk menegetahui apakah data menyebar normal dari galat yang sebbelumnya sudah diketahui. Hipotesis H0 artinya data berdistribusi normal dan H1 artinya data berdistribusi tidak normal. Kriteria uji adalah dari p-value < 0.05 maka tolak H0 jika p-value > 0.05 maka terima H0. Dari semua uji yang dilakukan maka dapat disimpulkan galat tidak terdistribusi normal karena p.value < 0.05
+
+```{r}
+# uji homogen ragam
+lmtest::bptest(dCenter ~.,
+               data = data_trans,
+               studentize = F)
+```
+pada uji homogen ragam digunakan bptest(). Jika nilai p-val > 0,05 berarti tidak terdapat gejala heteroskedastisitas. Jika nilai p-val < 0,05 yang berarti terdapat gejala heteroskedastisitas. Pada kali ini p-value < 0.05 artinya masih terdapat heterokedastisitas pada model yang dibuat.
+
+### Prediksi Regresi Linier
+
+Membagi data menjadi training testing
+
+```{r}
+set.seed(123)
+data_split <- initial_split(data = data_trans1,prop = 0.8)
+
+train1 <- training(data_split)
+test1 <- testing(data_split)
+
+regresi2 <- lm(dCenter ~.,data = train1)
+```
+
+### Prediksi data testing
+
+```{r}
+prediksi <- predict(regresi2,newdata = test1)
+head(prediksi)
+```
+
+### Evaluasi data testing
+
+```{r}
+prediksi <- predict(regresi2,newdata = test1)
+prediksi <- predict(regresi2,newdata = test1)
+head(prediksi)
+```
+ Training berfungsi melatih model sementara testing untuk mengetes model yang dibuat. Prediksi terhadap data testing diperlukan untuk kelanjutan melakukan uji terhadapnya. Untuk mengevaluasi data testing dapat dilihat menggunakan fungsi head().
+
+### Evaluasi hasil prediksi
+
+```{r}
+# RMSE
+mlr3measures::rmse(response = prediksi,truth = test1$dCenter)
+```
+
+```{r}
+# MAPE
+mlr3measures::mape(response = prediksi,truth = test1$dCenter)
+```
+
+```{r}
+# Spearman Correlation
+mlr3measures::srho(response = prediksi,truth = test1$dCenter)
+```
+
+Setelah dilakukan pelatihan dan pengetesan pada model data lalu dilakukan evaluasi hasil prekdiksi dapat dilihat evaluasi dengan\
+
+- RMSE(root mean square error) Dalam ukuran ini model prediksi dikatakan baik apabila nilai RMSE adalah mendekati 0. Nilai prediksi dari RMSE didapatkan sebesar = 17113.19 artinya Dalam konteks yang lebih spesifik, hal ini berarti bahwa model tersebut memiliki kesalahan prediksi rata-rata sebesar 17113.19 dalam satuan yang sama dengan variabel target. Semakin kecil nilai RMSE, semakin baik model dalam memprediksi nilai target.\
+
+- MAPE (mean absolute percentage error) ,Semakin rendah nilai MAPE, kemampuan dari model peramalan yang digunakan dapat dikatakan baik. hasil prediksi menggunakan MAPE adalah sebesar = 0.3582091 artinya prediksi model hasil MAPE memiliki kemampuan model peramalan yang layak, sehingga metode yang digunakan dapat menjadi acuan untuk mengetahui prediksi berdasarkan model regresi. \
+
+- SRHO (koefisien korelasi spearman), Semakin mendekati 1 maka korelasi semakin kuat sedangkan semakin mendekati nol maka korelasi antara dua variabel semakin rendah. Hasil prediksi menggunakan srho sebesar = 0.8390972 artinya lumayan mendekati 1 maka korelasi sangat kuat hal ini menunjukkan bahwa terdapat hubungan monotonik positif yang sangat kuat antara kedua variabel tersebut. Artinya, ketika nilai salah satu variabel meningkat, kemungkinan besar nilai variabel lainnya juga akan meningkat secara berurutan.

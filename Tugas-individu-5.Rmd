@@ -1,0 +1,201 @@
+---
+title: "Tugas Individu Modul 5 Praktikum Statistika Sains Data"
+output: html_document
+---
+
+# Tugas Individu Modul 5
+
+pada tugas individu kali ini kalian diberikan dataset yaitu dataset 'Collage' untuk memprediksi jumlah aplikasi yang diterima di universitas yang dipengaruhi oleh variabel lainnya.
+
+Dataset sudah tersedia di package ISLR
+
+```{r}
+library(ISLR)
+library(leaps)
+library(glmnet)
+library(kableExtra)
+library(pls)
+library(magrittr)
+```
+
+```{r}
+data(College)
+str(College)
+```
+
+```{r}
+kable(head(College))
+```
+
+## 1. Splitlah data set tersebut menjadi train set dan test set. (Hint: pertama lakukan set.seed pada data, lalu gunakan fungsi floor() untuk membagi jumlah train)
+
+### Jawaban:
+
+```{r}
+set.seed(123)
+smp_size <- floor(0.70 * nrow(College))
+train_ind <- sample(seq_len(nrow(College)), size = smp_size)
+train.college<-College[train_ind, ]
+test.college <- College[-train_ind, ]
+```
+
+## 2. Fitiing lah model dengan least square pada training set dan buatlah deskripsi laporan yang menghitung test error.
+
+### Jawaban:
+
+```{r}
+fit.lm <- lm(Apps~., data = train.college)
+sum1<-summary(fit.lm)
+kable(sum1$coefficients)
+```
+
+```{r}
+pred.lm <- predict(fit.lm, test.college)
+```
+
+Lakukan Test Error terhadap linear model
+
+```{r}
+lm.MSE<-mean((pred.lm - test.college$Apps)^2)
+lm.MSE
+```
+
+
+## 3. Lakukan fitting ridge regression model pada training set, dengan lambda yang dipilih oleh cross-validation. Buat laporan perhitungan test error.
+
+### Jawaban:
+
+```{r}
+set.seed(1)
+xmat.train <- model.matrix(Apps~., data=train.college)[,-1]
+ymat.train <- train.college$Apps
+```
+
+```{r}
+fit.ridge <- cv.glmnet(xmat.train, ymat.train, alpha=0, type.measure = "mse", nfolds = 5)
+```
+
+```{r}
+bestlam =fit.ridge$lambda.min
+bestlam
+```
+
+```{r}
+#prediksi hasil test menggunakan fillted model
+x_test <- model.matrix(Apps~., data=test.college)[,-1]
+y_test <- test.college$Apps
+pred.ridge <- predict(fit.ridge, newx=x_test, bestlam)
+```
+
+```{r}
+#melakukan perhitungan test error
+ridge.MSE <- mean((pred.ridge - y_test)^2)
+ridge.MSE
+```
+
+## 4. Lakukan Fitting pada lasso model pada training set, dengan lambda yang dipilih oleh cross validation. Buat laporan test error, bersamaan dengan jumlah estimasi non-zero coefficient.
+
+### Jawaban:
+
+```{r}
+#fittinhg lasso mdel training dataset
+x_train <- model.matrix(Apps~., data=train.college)[,-1]
+y_train <- train.college$Apps
+fit.lasso <- cv.glmnet(x_train, y_train, alpha=1, nfolds=5, type.measure="mse")
+```
+
+```{r}
+best.lambda <- fit.lasso$lambda.min
+best.lambda
+```
+
+```{r}
+fit.lasso <- glmnet(x_train, y_train, alpha=1, lambda=best.lambda)
+coef(fit.lasso)
+```
+
+```{r}
+x_test <- model.matrix(Apps~., data=test.college)[,-1]
+y_test <- test.college$Apps
+pred.lasso <- predict(fit.lasso, newx=x_test)
+```
+
+```{r}
+lasso.MSE <- mean((pred.lasso - y_test)^2)
+lasso.MSE
+```
+
+```{r}
+num.nonzero.coef <- sum(coef(fit.lasso, s=best.lambda) != 0)
+num.nonzero.coef
+```
+
+## 5. Lakukan Fitting PCR model pada training set, dengan memilih M dari cross validation. Buatlah laporan test error, bersamaan dengan nilai M yang dipilih oleh cross-validation.
+
+### Jawaban:
+
+```{r}
+x=model.matrix(Apps~.,College)[,-1]
+y=College$Apps
+```
+
+```{r}
+set.seed(1)
+train=sample(1:nrow(x),nrow(x)/2)
+test=(-train)
+y.test=y[test]
+```
+
+```{r}
+set.seed(2)
+pcr.fit=pcr(Apps~., data=College, scale=TRUE, validation="CV")
+```
+
+```{r}
+summary(pcr.fit)
+```
+
+```{r}
+validationplot(pcr.fit,val.type="MSEP")
+```
+
+```{r}
+set.seed(1)
+pcr.fit=pcr(Apps~., data=College, subset=train, scale=TRUE, validation="CV")
+validationplot(pcr.fit,val.type="MSEP")
+```
+
+```{r}
+pcr.pred = predict(pcr.fit, x[test, ], ncomp=17)
+mean((pcr.pred-y.test)^2)
+```
+
+```{r}
+pcr.fit=pcr(y~x, scale=TRUE, ncomp=17)
+summary(pcr.fit)
+```
+
+## 6. Lakukan fitting PLS model pada training set, dengan nilai M dipilih dari cross validation. Buatlah Laporan test error, bersamaan dengan nilai M yang dipilih dari cross-validation.
+
+### Jawaban:
+
+```{r}
+set.seed(1)
+pls.fit=plsr(Apps~.,data=College, subset=train, scale=TRUE, validation="CV")
+summary(pls.fit)
+```
+
+```{r}
+pls.pred=predict(pls.fit, x[test,], ncomp=17)
+mean((pls.pred-y.test)^2)
+```
+
+```{r}
+pls.fit=plsr(Apps~., data=College, scale=TRUE, ncomp=17)
+summary(pls.fit)
+```
+
+## 7. Berikan analisa dan penjelasan anda terhadap kelima model di atas, dan mengapa nilai eror yang dihasilkan sama semua?
+
+### Jawaban:
+Test error sama hanya terjadi pada model PCR dan PLS. Dalam beberapa kasus, hasil dari PLS dan PCR dapat sama karena keduanya memiliki kemampuan untuk menangani korelasi antara variabel independen dan variabel dependen atau dapat juga terjadi jika data yang digunakan cocok untuk kedua metode, artinya tidak ada perbedaan yang signifikan dalam kinerja keduanya dalam memprediksi nilai variabel respon.

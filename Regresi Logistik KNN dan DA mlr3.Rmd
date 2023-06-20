@@ -1,0 +1,397 @@
+---
+title: "Regresi Logistik K-NN dan Analisis Dikriminan menggunakan mlr3"
+output:
+  html_document:
+    df_print: paged
+---
+
+Pada tutorial ini akan membahas tentang tuning Hiperparameter model KNN yang kemudian akan dibandingkan hasilnya dengan regresi logistik
+
+## Package
+
+Silahkan install jika belum ada
+
+```{r eval=FALSE}
+install.packages("tidyverse")
+install.packages("mlr3verse")
+install.packages("mlr3tuning")
+install.packages("paradox")
+install.packages("kknn")
+install.packages("ggpubr")
+```
+
+```{r message=FALSE}
+library(tidyverse)
+library(mlr3verse)
+library(mlr3tuning)
+```
+
+
+## Deskripsi singkat data
+
+Data yang digunakan pada praktikum kali ini adalah data yang bernama Pima Indian Diabetes yang sudah sedikit diedit. Berikut adalah informasi singkat mengenai data
+
+This dataset is originally from the National Institute of Diabetes and Digestive and Kidney Diseases. The objective of the dataset is to diagnostically predict whether or not a patient has diabetes, based on certain diagnostic measurements included in the dataset. Several constraints were placed on the selection of these instances from a larger database. In particular, all patients here are females at least 21 years old of Pima Indian heritage.
+
+Content
+The datasets consists of several medical predictor variables and one target variable, Outcome. Predictor variables includes the number of pregnancies the patient has had, their BMI, insulin level, age, and so on.
+
+Acknowledgements
+Smith, J.W., Everhart, J.E., Dickson, W.C., Knowler, W.C., & Johannes, R.S. (1988). Using the ADAP learning algorithm to forecast the onset of diabetes mellitus. In Proceedings of the Symposium on Computer Applications and Medical Care (pp. 261--265). IEEE Computer Society Press.
+
+data ini bisa diperoleh di link berikut ini 
+
+[Diabetes Data](https://github.com/gerrydito/Model-Klasifikasi/tree/master/Praktikum/KNN)
+
+
+## Import data di R
+
+
+```{r}
+diabetes <- read.csv("C:/Users/rafif/Downloads/diabetes.csv",stringsAsFactors = TRUE)
+diabetes <- diabetes %>% mutate(across(where(is.integer),as.numeric))
+glimpse(diabetes)
+```
+
+Khusus yang menggunakan R versi 4.00 keatas, argumen `stringsAsFactors = TRUE` disertakan agar data yang berbentuk string bisa berubah menjadi factor.
+
+
+## Import data ke ekosistem mlr3
+
+
+```{r}
+task_diabetes = TaskClassif$new(id="diabetes",
+                             backend = diabetes,
+                             target = "Outcome",positive ="Case")
+```
+
+Argumen utama dalam fungsi `TaskClassif$new` adalah sebagai berikut:
+
+1. `id` yang merupakan nama dari task (bisa diisi dengan nama apapun)
+2. `backend` adalah data yang ingin dimodelkan dengan catatan peubah respon-nya harus berupa peubah numerik
+3. `target` adalah nama kolom yang dijadikan peubah respon
+
+
+## Menentukan model yang digunakan
+
+Pada tahap ini fungsi yang digunakan adalah `lrn` yang memiliki argumen utama **nama model** yang ingin digunakan. Berikut adalah model-model yang akan digunakan beserta argumen di dalam fungsi `lrn` dan asal packagenya:
+
+
+1. Regresi Logistik - `"classif.log_reg"` - `library(stats)`
+2. KNN - `"classif.kknn"` - `library(kknn)`
+3. Linear Discriminant Analysis - `"classif.lda"` - `library(MASS)`
+
+Sebagai catatan, untuk model-model yang digunakan dalam `mlr3` berasal dari package-package lain sehingga package-package tersebut perlu install terlebih dahulu. Kemudian, untuk model klasifikasi (respon biner atau multiclass) selalu diawali dengan kata `"classif."`. Fungsi `lrn` juga memungkinkan untuk memasukan argumen-argumen dari package asalnya (termasuk hiperparameter).
+
+
+```{r}
+lrn("classif.log_reg")
+as.data.table(lrn("classif.log_reg")$param_set)
+lrn("classif.kknn")
+as.data.table(lrn("classif.kknn")$param_set)
+lrn("classif.lda")
+as.data.table(lrn("classif.lda")$param_set)
+```
+
+Berdasarkan output diatas argumen-argumen yang bisa digunakan dalam `classif.log_reg`, `classif.knn` dan `classif.lda` ada di kolom id. Selanjutnya, kolom class menunjukkan **tipe data** argumen tersebut. Kolom **lower**, **upper** dan **levels** merupakan isi/nilai dari argumen tersebut. Informasi ini bisa digunakan untuk melakukan **tuning hyperparameter**.
+
+
+**Model k-NN** memiliki beberapa **hyperparameter** yang perlu diperhatikan yaitu
+
+1. `k` merupakan banyaknya tetangga (neighbors) yang dipertimbangkan dalam model. Nilai minimum `k` adalah 1 dan maksimumnya adalah **sebanyak observasi data**. Secara default bernilai 7.
+2. `distance` merupakan parameter dari jarak Minkowski yang secara matematis dapat ditulis
+
+$$
+D = \left(\Sigma_{i=1}^{n} (x_{i}-y_{i})^{p}\right)^{\frac{1}{p}}
+$$
+
+dimana $p$ merupakan parameter dari jarak Minkowski. Nilai default dari $p$ adalah 2, yang berarti **jarak Minkowski** sama dengan **jarak Euclidean**.
+3. `kernel` merupakan jenis kernel yang mungkin dipilih, seperti:
+
+* `"rectangular"` - k-NN tanpa kernel
+* `"triangular"`
+* `"epanechnikov"`
+* `"biweight"`
+* `"triweight"`
+* `"cos"`
+* `"inv"`
+* `"rank"`
+* `"gaussian"`
+* `"optimal"`
+untuk informasi lebih lanjut tentang penerapan kernel pada k-NN bisa melihat lebih lanjut pada paper
+
+- [Hechenbichler K. and Schliep K.P. (2004) Weighted k-Nearest-Neighbor Techniques and Ordinal Classification, Discussion Paper 399, SFB 386, Ludwig-Maximilians University Munich](https://epub.ub.uni-muenchen.de/1769/1/paper_399.pdf)
+- [Samworth, R.J. (2012) Optimal weighted nearest neighbour classifiers. Annals of Statistics, 40, 2733-2763](https://arxiv.org/pdf/1101.5783.pdf)
+
+
+**Model LDA** memiliki beberapa **hyperparameter** yang perlu diperhatikan yaitu
+
+1. `method` merupakan metode untuk melakukan estimasi pada mean dan variance. Berikut adalah metode-metodenya
+* `"moment"` - standard estimators of the mean and variance
+* `"mle"` - maximum likelihood estimation (mle) estimators of the mean and variance
+* `"mve"` - minimum volume ellipsoid (mve) estimators of the mean and variance
+* `"t"` - robust estimator of the mean and variance based one t distribution
+2. `nu` merupakan derajat bebas saat menggunakan `method="t"`
+
+
+```{r}
+standardize <- po("scale")
+# Jika dup_size=1, jumlah amatan kelas  minoritas
+#bertambah sebanyak 
+#1*(jumlah amatan awal)+jumlah amatan awal
+
+smote <- po("smote",dup_size=1)
+```
+
+```{r}
+standardize$train(list(task_diabetes))[[1]]$data() %>% glimpse
+```
+
+```{r}
+smote$train(list(task_diabetes))[[1]]$data() %>% count(Outcome)
+```
+
+
+Untuk menjalankan model-model tersebut kita bisa tulis seperti dibawah ini
+
+
+```{r}
+reglog <- GraphLearner$new(standardize %>>% smote %>>% lrn("classif.log_reg"))
+reglog
+# unweighted knn
+knn <- GraphLearner$new(standardize %>>%
+                          smote %>>%                          lrn("classif.kknn",
+           kernel="rectangular"))
+knn
+lda <- GraphLearner$new(standardize %>>%
+smote %>>%                          lrn("classif.lda",method="moment"))
+lda
+```
+
+
+
+## Melakukan interpretasi model (jika diperlukan)
+
+Tahap ini biasanya dilakukan untuk melihat bagaimana pengaruh peubah-peubah prediktor terhadap respon menurut masing-masing model. Misalnya saja dalam regresi logistik besarnya **nilai koefisien**,**odds ratio** dan **p-value** bisa menggambarkan bagaimana pengaruh peubah prediktor terhadap respon.
+
+Sebelum kita bisa memperoleh interpretasi dari suatu model dalam `mlr3`, kita perlu melakukan proses modeling/training terlebih dahulu dengan menggunakan **keseluruhan data**. Kemudian, Untuk menampilkan **nilai koefisien** dan **p-value** pada model regresi logistik, kita bisa menggunakan fungsi `summary`. 
+
+### Model Regresi logistik
+
+
+```{r}
+# train model dengan keseluruhan data
+reglog$train(task = task_diabetes) 
+summary(reglog$model$classif.log_reg$model)
+```
+
+Selain fungsi `summary`, kita juga bisa menggunakan fungsi `tidy` dari package `broom` untuk menampilkan hal yang sama. Hanya saja fungsi `tidy` menampilkan **nilai koefisien** dan **p-value** dalam bentuk `data.frame`
+
+
+```{r}
+broom::tidy(reglog$model$classif.log_reg$model)
+```
+
+Kita bisa menambahkan **odds ratio** dengan menggunakan sintaks berikut:
+
+```{r}
+broom::tidy(reglog$model$classif.log_reg$model) %>% 
+  mutate(OddsRatio = exp(estimate))
+# menampilkan informasi tambahan tentang model
+broom::glance(reglog$model$classif.log_reg$model)
+```
+
+
+Contoh Interpretasi odds ratio:
+
+- **Age** : setiap penambahan Age sebesar 1 tahun maka akan meningkatkan resiko diabetes sebesar 1.2 kali.
+
+- **Insulin** : setiap penambahan Insulin sebesar 1 satuan maka akan menurunkan resiko diabetes sebesar 0.8 kali.
+
+
+### Model Linear Discriminat Analysis
+
+```{r}
+# train model dengan keseluruhan data
+lda$train(task = task_diabetes)
+```
+
+```{r}
+coef_lda <- coef(lda$model$classif.lda$model)
+coef_lda
+```
+
+Fungsi Diskriminan dapat dituliskan
+
+```{r echo=FALSE}
+d1 <- str_c("D1=",str_c(round(coef_lda[,1],3),"*",rownames(coef_lda),collapse = ""))
+cat(d1)
+```
+
+
+```{r}
+predictedLD <- predict(lda$model$classif.lda$model,newdata = diabetes)
+plotLD <- data.frame(predictedLD$x,class=predictedLD$class)
+glimpse(plotLD)
+plotLD %>% count(class)
+```
+
+```{r}
+ggpubr::ggboxplot(plotLD,x="class",y="LD1",fill="class")
+```
+
+
+## Mendefinisikan Tuning Hiperparameter
+
+**Tuning hiperparameter** bertujuan untuk **meningkatkan performa model** dalam hal prediksi dengan menemukan nilai **hiperparameter terbaik** berdasarkan **kriteria tertentu**. Secara umum, tahapan tuning hiperparameter adalah sebagai berikut:
+
+1. Menentukan hiperparamter yang ingin dilakukan tuning
+2. Menentukan stopping criteria 
+3. Menentukan metode optimisasi 
+4. Menentukan metode resampling (inner resampling)
+5. Menggabungkan informasi 1-4 kedalam fungsi `Autotuner`
+6. Menjalankan Tuning
+7. Mengevaluasi hasil tuning
+8. Menentukan hiperparamter terbaik
+
+Setelah mengetahui tahapanya, kita akan langsung menerapkan hal ini ke dalam model.
+
+### Menentukan hiperparamter yang ingin dilakukan tuning
+
+
+Pada tahap ini kita akan menentukan hiperparamter dari model KNN beserta **batas nilai** untuk pencarian hiperparamter. Model **Regresi Logistik** tidak memiliki hiperparamter sehingga tidak kita lakukan **tuning**. 
+
+Umumnya, hiperparameter yang dilakukan tuning untuk KNN adalah **k** (banyaknya tetangga). 
+
+```{r}
+param_bound_KNN <- paradox::ParamSet$new(params = list(ParamInt$new("k",
+                                                            lower = 2, 
+                                                            upper = 100)
+                                               )
+                                 )
+
+```
+
+hiperparameter **k** memiliki tipe data  **integer** (bilangan bulat) sehingga hiperparameternya adalah fungsi `ParamInt$new`. Kemudian `lower` dan `upper` menunjukan batas bawah dan atas nilai hiperparamter yang akan ditelusuri. Dengan kata lain, penelusuran nilai akan dilakukan direntang tersebut.
+
+### Menentukan stopping criteria
+
+Penentuan **stopping criteria** dapat dilakukan dengan menggunakan fungsi `trm`
+
+
+```{r}
+terminate = trm("evals", n_evals = 20)
+```
+
+Fungsi `trm` membutuhkan argumen utama nama metode **stopping criteria**, yang secara lengkap bisa dilihat di 
+
+* https://cheatsheets.mlr-org.com/mlr3tuning.pdf
+
+Selanjutnya, argumen kedua yang dalam kasus ini `n_evals`, akan berubah-ubah sesuai dengan metode **stopping criteria** yang dipilih. Argumen `"evals` berarti **stopping criteria** yang dipilih adalah **banyaknya iterasi**, yang mana tuning hiperparameter akan berhenti saat mencapai iterasi tertentu (dalam hal ini saat iterasi 100). 
+
+### Menentukan metode optimisasi 
+
+Penentuan **metode optimisasi** dapat dilakukan dengan menggunakan fungsi `tnr`
+
+```{r paged.print=FALSE}
+tuner <- tnr("grid_search",resolution=110)
+```
+
+Fungsi `tnr` memiliki satu argumen utama yaitu nama algoritma tuningnya, sedangkan argumen kedua dan ketiga itu bergantung pada algoritma tuning yang dipilih. Secara lengkah algoritma-algortima tuning bisa diakses bisa dilihat pada 
+
+* https://cheatsheets.mlr-org.com/mlr3tuning.pdf. 
+
+Pada kasus ini kita akan menggunakan algoritma **grid_search**.  Algoritma ini memungkinkan kita untuk menggunakan semua nilai hiperparameter yang mungkin di selang yang sudah kita definisikan. Dalam konteks model KNN ini, nilai **k** yang kita definisikan memiliki selang $[2,100]$, yang berarti nilai hiperparameter yang digunakan adalah $2,3,4,\ldots,100$.
+
+### Menentukan metode resampling (inner resampling)
+
+Untuk melakukan tuning hiperparameter biasanya diperlukan suatu metode resampling untuk menjamin bahwa hiperparamter yang diperoleh tidak menyebabkan model **overfitting**. Metode resampling yang biasanya digunakan adalah **nested resampling** atau **nested-CV**. Metode ini terdiri dari dua resampling yaitu **inner-resampling/CV** dan juga **outer-resampling**. **Inner-resampling** digunakan untuk **tuning hiperparamter**, sedangkan **outer-resampling** digunakan untuk evaluasi model yang sudah mendapatkan hiperparamter terbaik dari hasil tuning. **Nested resampling** bisa dijelaskan melalui gambar berikut.
+
+![Nested Resampling](https://mlr3book.mlr-org.com/images/nested_resampling.png)
+
+Berikut adalah sintaksnya untuk penentuan inner resampling
+```{r}
+resample_inner = rsmp("cv", folds = 3)
+```
+
+### Menggabungkan informasi 1-4 kedalam fungsi `Autotuner`
+
+Fungsi `Autotuner` berasal dari pacakge `mlrtuning`
+
+
+```{r}
+# KNN
+knn_tune <- GraphLearner$new(id="knn_tune",standardize %>>%
+                          smote %>>%         AutoTuner$new(learner =                   lrn("classif.kknn",
+           kernel="rectangular"),
+                          measure = msr("classif.bacc"),
+                          terminator = terminate,
+                          resampling = resample_inner,
+                          search_space = param_bound_KNN,
+                          tuner = tuner,
+                          store_models = TRUE
+))
+
+```
+
+Perlu diperhatikan diatas bahwa `measure` yang kita pilih adalah `classif.bacc` hal ini berarti tuning hiperparameter  dilakukan berdasarkan nilai **Balanced Accuracy**
+
+**Tahap 6-8 akan diakomodir dalam tahapan komparasi model**
+
+## Menentukan metode resampling (outer resampling)
+
+Selain untuk mengevaluasi hasil dari tuning hiperparamter, outer resampling juga bisa digunakan untuk membandingkan model yang sudah dituning dengan model sebelum di tuning maupun model lainnya.
+
+
+```{r}
+resample_outer = rsmp("holdout",ratio=0.8) 
+# menggunakan set.seed pada metode resampling
+set.seed(21193)
+resample_outer$instantiate(task = task_diabetes)
+```
+
+
+
+## Komparasi Model
+
+Pada tahap ini kita akan membandingkan performa model hasil tuning dengan sebelum tuning. Selain itu, tahap ini juga secara otomatis akan menerapkan tahap 6 dan 7 dalam tuning hiperparamter.
+
+
+```{r}
+model_diabetes <- list(knn,
+                       knn_tune,
+                       reglog,
+                       lda
+                       )
+
+design <- benchmark_grid(tasks = task_diabetes,
+                         learners = model_diabetes,
+                         resamplings = resample_outer 
+                         )
+```
+
+```{r results='hide'}
+bmr = benchmark(design,store_models = TRUE)
+```
+
+
+## Hasil Komparasi model
+
+Hasil komparasi model dapat berupa nilai-nilai ukuran kebaikan model yang ditentukan oleh pengguna.
+
+
+```{r paged.print=FALSE}
+result = bmr$aggregate(msr("classif.bacc"))
+result
+```
+
+## Hiperparameter Terbaik
+
+Untuk mengetahui hiperparameter terbaik kita bisa menggunakan user-defined function berikut:
+
+
+```{r}
+as.data.table(bmr)$learner[[2]]$model$classif.kknn.tuned$model$tuning_instance
+```
+
+

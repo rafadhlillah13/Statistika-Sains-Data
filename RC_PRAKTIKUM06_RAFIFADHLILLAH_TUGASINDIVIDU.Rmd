@@ -1,0 +1,143 @@
+---
+title: "Tugas Individu Prak SSD 6"
+output: html_document
+date: "2023-04-14"
+---
+
+## Nama : Rafi Fadhlillah
+## NIM 121450143
+
+
+Pertanyaan ini menggunakan variabel dis( rata rata tertimbang jarak ke lima pusat pekerjaan boston) dan konsentrasi nox nitrogen oksida dalam bagian per 10 juta dari data boston. Kita akan memperlakukan dis sebagai responnya.
+
+### Import library
+```{r}
+library(knitr)
+library(MASS)
+library(boot)
+```
+
+### 1. Gunakan fungsi poly() agar sesuai dengan regresi polinomial kubik untuk memprediksi nox menggunakan dis. Laporkan keluaran regresi dan plot data yang dihasilkan dan kecocokan polinomial
+
+```{r}
+data(Boston)
+set.seed(123)
+fit <- lm(nox ~ poly(dis, 4), data = Boston)
+a <- coef(fit)
+kable(summary(fit)$coefficients)
+```
+
+```{r}
+dislims <- range(Boston$dis)
+dis.grid <- seq(from = dislims[1], to = dislims[2], by = 0.1)
+preds <- predict(fit, list(dis = dis.grid))
+plot(nox ~ dis, data = Boston, col = "lightblue")
+lines(dis.grid, preds, col = "darkgreen", lwd = 2)
+```
+
+**Analisis : Dapat dilihat bahwa grafik menunjukkan tren penurunan yang cukup stabil dalam tingkat emisi nox seiring dengan meningkatnya jarak dari pusat pekerjaan Boston. Ini dapat diinterpretasikan sebagai hasil regresi linier berganda dengan dis yang diubah menjadi polinomial orde ke-4 sebagai prediktor. Nox mengalami tren penurunan dengan dis menunjukkan bahwa tingkat emisi nox cenderung menurun seiring dengan meningkatnya jarak dari pusat pekerjaan Boston**
+
+### 2. plot fitting polinomial untuk berbagai derajat polinomial yang berbeda (katakanlah, dari 1 sampai 10) dan laporkan associated residual sum of squares
+
+```{r}
+set.seed(123)
+rss <- rep(NA, 10)
+for (i in 1:10) {
+lm.fit <- lm(nox ~ poly(dis, i), data = Boston)
+rss[i] <- sum(lm.fit$residuals^2)
+}
+
+plot(1:10, rss, xlab = "Polynomial Degree", ylab = "RSS", type = "l")
+d.min <- which.min(rss)
+points(d.min, rss[d.min], col = "red", cex = 2, pch = 20)
+```
+
+**Analisis : Dalam plot tersebut, kita dapat melihat bahwa nilai RSS menurun secara signifikan ketika derajat polinomial digunakan sebagai prediktor meningkat dari 1 hingga sekitar 3 atau 4, dan kemudian nilai RSS cenderung stabil atau mulai meningkat. Titik merah menunjukkan derajat polinomial dengan nilai RSS terendah, yaitu 10. Hal ini menunjukkan bahwa menggunakan polinomial derajat yang lebih tinggi sebagai prediktor untuk model regresi dapat mengurangi nilai RSS pada data pelatihan. Namun, kita juga harus mempertimbangkan risiko overfitting ketika menggunakan polinomial derajat yang terlalu tinggi.**
+
+### 3. lakukan validasi silang atau pendekatan lain untuk memilih derajat optimal polinomial, dan jelaskan hasil anda
+
+```{r}
+set.seed(702)
+deltas <- rep(NA, 10)
+
+for (i in 1:10) {
+  fit <- glm(nox ~ poly(dis, i), data = Boston)
+  deltas[i] <- cv.glm(Boston, fit, K = 10)$delta[1]
+}
+
+plot(1:10, deltas, xlab = "Degree", ylab = "Test Error", type = "l")
+d.min <- which.min(deltas)
+points(d.min, deltas[d.min], col = "red", cex = 2, pch = 20)
+
+d.min
+
+```
+**Analisis : Dalam plot tersebut, kita dapat melihat bahwa nilai error pengujian menurun secara signifikan ketika derajat polinomial digunakan sebagai prediktor meningkat dari 1 hingga sekitar 3 atau 4, dan kemudian nilai error pengujian cenderung stabil atau mulai meningkat. Titik merah menunjukkan derajat polinomial dengan nilai error pengujian terendah. Berdasarkan plot diatas derajat yang optimal untuk model regresi ini adalah 3 yang dipilih oleh cross-validation dengan K=10. **
+
+### 4. Gunakan fungsi bs() agar sesuai dengan spline regresi untuk memprediksi nox menggunakan dis. Laporkan output fitting dengan menggunakan empat derajat kebebasan. Bagaimana anda memilih simpul? plot fitting yang dihasilkan
+```{r}
+library(splines)
+bs.fit <- lm(nox ~ bs(dis, df = 4), data = Boston)
+summary(bs.fit)
+pred <- predict(bs.fit, list(dis = seq(min(Boston$dis), max(Boston$dis), length = 100)))
+```
+
+**Summary menunjukkan bahwa semua fitting spline adalah signifikan. Plot garis pas menunjukkan bahwa model fit. Kita menggunakan opsi df untuk menghasilkan spline dengan simpul (knot) pada kuantil data yang seragam**
+
+```{r}
+plot(nox ~ dis, data = Boston, col = "lightgreen")
+lines(seq(min(Boston$dis), max(Boston$dis), length = 100), pred, col = "blue", lwd = 2)
+title("Spline with four degrees of freedom")
+
+```
+
+**Analisis : Plot menunjukkan hubungan antara variabel dis dan nox dalam dataset Boston, dengan titik biru menunjukkan data asli dan garis biru menunjukkan kurva spline yang cocok dengan data. Kurva spline yang lebih halus dapat memberikan pendekatan yang lebih baik terhadap hubungan antara variabel dis dan nox di dalam dataset Boston, karena kurva ini mampu menangkap perubahan yang lebih halus dalam hubungan tersebut. Selain itu, penggunaan fungsi spline juga memberikan fleksibilitas tambahan dalam memodelkan hubungan non-linear antara variabel dependen dan independen dalam model regresi.**
+
+```{r}
+bs.fit <- lm(nox ~ bs(dis, df = 4, knots = c(4, 7, 11)), data = Boston)
+bs.fit1 <- lm(nox ~ bs(dis, df = 4), data = Boston)
+summary(bs.fit)
+coef(summary(bs.fit))
+attr(bs.fit$terms[[2]], "knots")
+pred <- predict(bs.fit, list(dis = seq(min(Boston$dis), max(Boston$dis), length = 100)))
+
+plot(nox ~ dis, data = Boston, col = "lightgreen")
+lines(seq(min(Boston$dis), max(Boston$dis), length = 100), pred, col = "blue", lwd = 2)
+title("Spline with four degrees of freedom and uniform knots")
+
+```
+
+**Analisis :  Berdasarkan plot di atas model regresi spline dengan empat derajat kebebasan dan simpul yang terletak secara merata pada variabel dis memberikan pendekatan yang lebih baik terhadap hubungan antara variabel dis dan nox di dalam dataset Boston dibandingkan dengan model regresi linear. Selain itu, simpul yang terletak secara merata pada variabel dis memungkinkan model untuk menangkap perubahan yang lebih halus dalam hubungan tersebut**
+
+### 5.Sekarang paskan spline regresi untuk rentang derajat kebebasan dan plot fitting yang dihasilkan dan laporkan rss yang dihasilkan. Uraikan hasil yang didapat
+
+```{r}
+set.seed(12345678)
+rss <- rep(NA, 14)
+for (i in 3:16) {
+  lm.fit <- lm(nox ~ bs(dis, df = i), data = Boston)
+  rss[i-2] <- sum(lm.fit$residuals^2)
+}
+rss[-c(1, 2)]
+
+plot(3:16, rss, xlab = "Degrees of freedom", ylab = "RSS", type = "l")
+d.min <- which.min(rss)
+points(d.min+2, rss[d.min], col = "red", cex = 2, pch = 20)
+```
+**Analisis : Pada plot di atas, sum of squared residuals (RSS) ditunjukkan pada sumbu y dan degrees of freedom (df) pada sumbu x. Terlihat bahwa RSS menurun seiring dengan peningkatan df, namun turunnya mulai melambat saat df mencapai kisaran 9 hingga 14, lalu kembali menurun secara drastis saat df meningkat melebihi 14. Pada plot, titik merah menunjukkan df dengan RSS terendah, yaitu df=14. Hal ini menunjukkan bahwa spline regresi dengan df=14 memberikan hasil terbaik dalam memodelkan hubungan antara variabel dis dan nox pada data Boston, yang diukur dengan nilai RSS.**
+
+### 6.Lakukan validasi silang atau pendekatan lain untuk memilih derajat kebebasan terbaik untuk spline regresi pada data ini. Jelaskan hasil anda
+
+```{r}
+set.seed(12345678)
+cv <- rep(NA, 14)
+for (i in 3:16) {
+  fit <- glm(nox ~ bs(dis, df = i), data = Boston)
+  cv[i] <- cv.glm(Boston, fit, K = 10)$delta[1]
+}
+plot(3:16, cv[-c(1, 2)], xlab = "Degrees of freedom", ylab = "Test error", type = "l")
+d.min <- which.min(cv)
+points(d.min, cv[d.min], col = "red", cex = 2, pch = 20)
+```
+
+**Analisis : Pada plot di atas, sumbu x menunjukkan derajat kebebasan dari spline basis, sedangkan sumbu y menunjukkan kesalahan uji berdasarkan validasi silang 10 kali. Hasil menyarankan bahwa regresi spline dengan 8 derajat kebebasan adalah pilihan yang optimal untuk model karena memiliki kesalahan uji paling kecil.**

@@ -1,0 +1,312 @@
+---
+title: "Tugas Individu Modul 4 Praktikum Statistika Sains Data"
+author: "Sains Data Institut Teknologi Sumatera"
+date: "2023-03-16"
+output: pdf_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Tugas Individu Modul 4 Praktikum Statistika Sains Data
+
+Pada tugas individu modul 4 ini akan digunakan beberapa model dengan
+linear model selection untuk memprediksi tingkat kriminal per kapita di
+Boston, dengan menggunakan Boston dataset.
+
+## Soal 1
+
+Cobalah beberapa metode regresi yang ada di modul 4, seperti best subset
+selection, ridge dan lasso regresi.
+
+impor library yang digunakan:
+
+```{r}
+library(MASS) # Boston dataset
+library(leaps) # forward and backward selection
+library(glmnet) # ridge and lasso
+library(kableExtra)
+library(ggplot2)
+```
+
+### Jawaban 1:
+
+```{r}
+data(Boston)
+kable(head(Boston))
+```
+
+Membuat fungsi subset selection
+
+```{r}
+set.seed(1)
+predict.regsubsets = function(object,newdata,id,...) {
+    form = as.formula(object$call[[2]])
+    mat = model.matrix(form,newdata)
+    coefi = coef(object,id=id)
+    mat[, names(coefi)] %*% coefi
+}
+```
+
+```{r}
+k = 10
+p = ncol(Boston) - 1
+folds = sample(rep(1:k, size = nrow(Boston)))
+cv.errors = matrix(NA, k, p)
+for (i in 1:k) {
+    best.fit = regsubsets(crim ~ ., data = Boston[folds!=i,], nvmax = p)
+    for (j in 1:p) {
+        pred = predict(best.fit, Boston[folds == i, ], id = j)
+        cv.errors[i, j] = mean((Boston$crim[folds == i] - pred)^2)
+    }
+}
+mean.cv.error = apply(cv.errors, 2, mean)
+plot(mean.cv.error, pch = 20, type = 'b',
+xlab = "Jumlah prediktor", ylab = "mean cv error")
+```
+
+Jumlah prediktor 12 memiliki mean mse terkecil
+
+```{r}
+x <- c(1:13)
+y <- data.frame(mean.cv.error)
+y1 <- y$mean.cv.error
+qplot(x,y1, geom = "line", xlab = "banyak prediktor", 
+ylab = "mean cv error",color="red", 
+main = NULL)
+```
+
+```{r}
+which.min(mean.cv.error)
+mean.cv.error[which.min(mean.cv.error)]
+```
+
+Pada hasil di atas bahwa digunak 9 variabel dan nilai eror yang
+dihasilkan adalah MSE = 42.81453
+
+Membuat model Lasso Regression:
+
+```{r}
+x = model.matrix(crim ~ ., data = Boston)
+y = Boston$crim
+cv.lasso = cv.glmnet(x, y, type.measure = "mse")
+plot(cv.lasso)
+```
+
+```{r}
+x1 <- cv.lasso$lambda
+x<-log(x1)
+#y <- ...$...
+y1 <- cv.lasso$cvm
+qplot(x,y1, geom = "line", xlab = "Log(lambda)", 
+ylab = "MSE" ,color="red", 
+main = NULL)
+```
+
+Maka nilai lambda terbaik dan koefisien serta error rate adalah:
+
+```{r}
+coef(cv.lasso)
+#sqrt(cv.lasso$cvm[cv.lasso$lambda == cv.lasso$lambda.1se])
+cv.lasso$lambda.min # best lamda
+cv.lasso$cvm[cv.lasso$lambda == cv.lasso$lambda.1se]
+
+#...$...[...$... == ...$...]
+```
+
+nilai MSE pada model lasso adalah = 55.01945
+
+Selanjutnya pada model Ridge regresi:
+
+```{r}
+x = model.matrix(crim~., data = Boston)
+y = Boston$crim
+cv.ridge = cv.glmnet(x, y, type.measure = "mse", alpha = 0)
+plot(cv.ridge)
+```
+
+```{r}
+x2 <- cv.ridge$lambda
+x<-log(x2)
+y <- cv.ridge$cvm
+ #y1 <- cv.lasso$cvm
+qplot(x,y, geom = "line", xlab = "log(lamda)", 
+ylab = "MSE error",color="red", 
+main = "The mse error vs lamda ")
+```
+
+Maka nilai lambda terbaik dan koefisien serta error rate adalah:
+
+```{r}
+coef(cv.ridge)
+cv.ridge$lambda.min # best lamda
+cv.ridge$cvm[cv.ridge$lambda == cv.ridge$lambda.1se] #error rate
+```
+
+nilai MSE pada model lasso adalah = 62.29209
+
+## Cara Lain:
+
+Bisa juga dengan menggunakan skrip berikut:
+
+Lakukan split data training dan test:
+
+```{r}
+set.seed(1)
+trainid <- sample(1:nrow(Boston), nrow(Boston)/2)
+train <- Boston[trainid,]
+test <- Boston[-trainid,]
+xmat.train <- model.matrix(crim ~ ., data=train)[,-1]
+xmat.test <- model.matrix(crim ~ ., data=test)[,-1]
+str(Boston)
+```
+
+#### Ridge Regression Model
+
+```{r}
+fit.ridge <- cv.glmnet(xmat.train, train$crim, alpha=0)
+lambda <- fit.ridge$lambda.min  # optimal lambda
+pred.ridge <- predict(fit.ridge, s=lambda, newx=xmat.train)
+err.ridge <- mean((test$crim - pred.ridge)^2)  # test error
+predict(fit.ridge, s=lambda, type="coefficients")
+```
+
+#### Lasso Regression Model
+
+```{r}
+fit.lasso <- cv.glmnet(xmat.train, train$crim, alpha=1)
+lambda <- fit.lasso$lambda.min  # optimal lambda
+pred.lasso <- predict(fit.lasso, s=lambda, newx=xmat.test)
+err.lasso <- mean((test$crim - pred.lasso)^2)  # test error
+predict(fit.lasso, s=lambda, type="coefficients")
+```
+
+#### Membuat fungsi subset selection
+
+```{r}
+predict.regsubsets <- function(object, newdata, id, ...){
+  form <- as.formula(object$call[[2]])
+  mat <- model.matrix(form, newdata)
+  coefi <- coef(object, id=id)
+  xvars <- names(coefi)
+  mat[,xvars]%*%coefi
+}
+```
+
+#### Forward Selection
+
+```{r}
+fit.fwd <- regsubsets(crim ~ ., data=train, nvmax=ncol(train)-1, method="forward")
+fwd.summary <- summary(fit.fwd)
+err.fwd <- rep(NA, ncol(train)-1)
+for(i in 1:(ncol(train)-1)) {
+  pred.fwd <- predict(fit.fwd, test, id=i)
+  err.fwd[i] <- mean((pred.fwd - test$crim)^2)
+}
+```
+
+```{r}
+plot(err.fwd, type="b", main="Test MSE for Forward Selection", xlab="Number of Predictors")
+```
+
+```{r}
+which.min(err.fwd)
+```
+
+#### Backward Selection
+
+```{r}
+fit.bwd <- regsubsets(crim ~ ., data=train, nvmax=ncol(Boston)-1)
+bwd.summary <- summary(fit.bwd)
+err.bwd <- rep(NA, ncol(train)-1)
+for(i in 1:(ncol(train)-1)) {
+  pred.bwd <- predict(fit.bwd, test, id=i)
+  err.bwd[i] <- mean((pred.bwd - test$crim)^2)
+}
+```
+
+```{r}
+plot(err.bwd, type="b", main="Test MSE for Backward Selection", xlab="Number of Predictors")
+```
+
+```{r}
+which.min(err.bwd)
+```
+
+```{r}
+par(mfrow=c(3,2))
+
+min.cp <- which.min(summary(fit.fwd)$cp)
+plot(summary(fit.fwd)$cp, xlab="Number of Poly(X)", ylab="Forward Selection Cp", type="l")
+points(min.cp, summary(fit.fwd)$cp[min.cp], col="red", pch=4, lwd=5)
+
+min.cp <- which.min(summary(fit.bwd)$cp)  
+plot(summary(fit.bwd)$cp, xlab="Number of Poly(X)", ylab="Backward Selection Cp", type="l")
+points(min.cp, summary(fit.bwd)$cp[min.cp], col="red", pch=4, lwd=5)
+
+min.bic <- which.min(summary(fit.fwd)$bic)  
+plot(summary(fit.fwd)$bic, xlab="Number of Poly(X)", ylab="Forward Selection BIC", type="l")
+points(min.bic, summary(fit.fwd)$bic[min.bic], col="red", pch=4, lwd=5)
+
+min.bic <- which.min(summary(fit.bwd)$bic)  
+plot(summary(fit.bwd)$bic, xlab="Number of Poly(X)", ylab="Backward Selection BIC", type="l")
+points(min.bic, summary(fit.bwd)$bic[min.bic], col="red", pch=4, lwd=5)
+
+min.adjr2 <- which.max(summary(fit.fwd)$adjr2)  
+plot(summary(fit.fwd)$adjr2, xlab="Number of Poly(X)", ylab="Forward Selection Adjusted R^2", type="l")
+points(min.adjr2, summary(fit.fwd)$adjr2[min.adjr2], col="red", pch=4, lwd=5)
+
+min.adjr2 <- which.max(summary(fit.bwd)$adjr2)  
+plot(summary(fit.bwd)$adjr2, xlab="Number of Poly(X)", ylab="Backward Selection Adjusted R^2", type="l")
+points(min.adjr2, summary(fit.bwd)$adjr2[min.adjr2], col="red", pch=4, lwd=5)
+```
+
+## Soal 2
+
+Bagaimana analisa anda terhadap model subset selection, forward and
+backward selection, ridge regresi dan lasso regresi? Jelaskan dengan
+analisa komparasi model.
+
+```{r}
+err.ridge
+err.lasso
+err.fwd
+err.bwd
+mean(err.fwd)
+mean(err.bwd)
+```
+
+Berdasarkan hasil tersebut model lasso dengan 11 prediktor memiliki
+nilai error terkecil untuk model forward dan backward memiliki rata rata
+mse dikit di atas model lasso, dan untuk model ridge dengan 12 prediktor
+memiliki error yang sangat besar sehingga saya tidak memilih itu. (untuk
+model forward dan backward jika ingin mengetahui coefficients yang di
+pilih bisa menggunakan metode seperti CP, BIC, dan Adjr2).
+
+## Soal 3
+
+Apakah model yang Anda pilih melibatkan semua fitur dalam kumpulan data?
+Kenapa? jika tidak, kenapa?
+
+Saya tidak melibatkan semua fitur dalm kumpulan data, karena saya
+memilih model lasso (dengan error terkecil berdasarkan nomor 2) model
+lasso memilih 11 prediktor.
+
+# Tugas Kelompok:
+
+Carilah dataset klasifikasi untuk dilakukan model selection dan
+mengevaluasi model dengan meninjau nilai eror. Model yang digunakan
+adalah : subset selection, Forward and backward selection, Ridge dan
+Lasso Regresi. buatlah step by step seperti dibawah ini i) Pengantar
+dataset (respons, variabel prediktor, jumlah observasi, dan jumlah
+prediktor) ii) Pertanyaan yang ingin Anda jawab (Uraikan apa saja yang
+ingin anda tinjau) iii) Pembersihan data (Jika terdapat missing value)
+iv) Analisis deskriptif awal (ringkasan numerik dan gambar plot - jika
+diperlukan) v) Metode klasifikasi yang digunakan vi) Pilihan model -
+kesalahan uji (test error)/ validasi silang (cross validation) vii)
+Kesimpulan dan diskusi (yang dirujuk pada pertanyaan yang ingin Anda
+jawab) viii) Tulis laporan dengan Rmd!

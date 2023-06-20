@@ -1,0 +1,567 @@
+---
+title: "Tugas Individu  3 TEKNIK RESAMPLING"
+date: "2023-03-10"
+output: html_document
+---
+
+### Nama : Rafi Fadhlillah
+### NIM : 121450143
+### Kelas : RC
+
+## IMPORT LIBRARY
+```{r}
+library(tidyverse)
+library(mlr3tuning)
+library(mlr3verse)
+library(smotefamily)
+library(ggpubr)
+library(kknn)
+library(skimr)
+library(ROCR)
+library(DataExplorer)
+```
+
+## Import Dataset
+```{r}
+audit <- read.csv("C:/Users/rafif/Downloads/audit_risk.csv",stringsAsFactors = TRUE)
+audit <- audit %>% mutate(across(where(is.integer),as.numeric))
+audit$Risk <- as.factor(audit$Risk)
+glimpse(audit)
+```
+
+```{r}
+skim(audit)
+```
+
+```{r}
+df <- audit %>% 
+      select(-LOCATION_ID, Money_Value) %>% 
+      na.omit()
+```
+
+```{r}
+plot_intro(data = df,
+           geom_label_args = list(size=2.5))
+```
+
+**Analisis : Plot diatas menunjukkan bahwa All Missing Columns dan Missing Observation sebesar 0% serta Complate Rows mencapai 100% artinya tidak ada nilai missing dalam dataset ini sehingga data ini siap untuk diolah ke tahap selanjutnya.**
+
+## Definisikan Objek Task Dan Learner
+```{r}
+task_audit = TaskClassif$new(id="Risk",
+                             backend = df,
+                             target = "Risk",positive ="1")
+```
+
+
+## Learner
+
+```{r}
+learner1 = lrn("classif.log_reg", predict_type = "prob")
+learner1
+```
+
+**Analisis : objek learner1 yang berisi model pembelajaran mesin logistik regresi untuk klasifikasi dengan nilai default pada parameter predict_type yaitu "prob" yang mengindikasikan bahwa output dari prediksi model ini adalah probabilitas kelas. Model yang digunakan adalah logistik regresi yang merupakan salah satu algoritma klasifikasi yang umum digunakan dalam pembelajaran mesin. Objek learner1 merupakan objek model yang siap digunakan dan dapat di training pada data latih. Model ini menggunakan nilai default untuk parameter predict_type yang berarti bahwa output dari prediksi model ini adalah probabilitas kelas. Model ini dapat diubah dan disesuaikan dengan kebutuhan dengan mengubah nilai pada parameter-parameter yang tersedia.**
+
+```{r}
+learner2 = lrn("classif.lda", predict_type = "prob")
+learner2
+```
+
+**Analisis : objek learner2 yang berisi model pembelajaran mesin LDA (Linear Discriminant Analysis) untuk klasifikasi dengan nilai default pada parameter predict_type yaitu "prob" yang mengindikasikan bahwa output dari prediksi model ini adalah probabilitas kelas. Model yang digunakan adalah LDA yang merupakan salah satu algoritma klasifikasi yang umum digunakan dalam pembelajaran mesin. Objek learner2 merupakan objek model yang siap digunakan dan dapat di training pada data latih. Model ini menggunakan nilai default untuk parameter predict_type yang berarti bahwa output dari prediksi model ini adalah probabilitas kelas. Model ini dapat diubah dan disesuaikan dengan kebutuhan dengan mengubah nilai pada parameter-parameter yang tersedia.**
+
+## learner 2 tidak di gunakan karena ada data constant
+**Data constant atau data konstan adalah data yang memiliki nilai yang sama pada seluruh baris atau kolom dalam suatu dataset. Data konstan dapat menyebabkan masalah pada analisis data, terutama pada analisis regresi dan klasifikasi. Pada analisis regresi, data konstan dapat menyebabkan model tidak dapat membedakan efek variabel independen terhadap variabel dependen, sehingga model tidak berguna untuk memprediksi variabel dependen. Pada analisis klasifikasi, data konstan dapat menyebabkan model tidak dapat membedakan antara kelas yang berbeda dan menghasilkan hasil klasifikasi yang tidak akurat. Oleh karena itu, sebelum melakukan analisis data, penting untuk memeriksa apakah terdapat data konstan dan menangani data tersebut jika ditemukan.**
+
+```{r}
+msr_tbl = as.data.table(mlr_measures)
+msr_tbl[1:5, .(key, label, task_type)]
+```
+
+**Analisis : Tampilan 5 baris pertama dari objek data.table yang dibuat dari objek mlr_measures yang berisi berbagai ukuran kinerja yang dihasilkan oleh model dalam pembelajaran mesin.Objek data.table msr_tbl terdiri dari 3 kolom yaitu key, label, dan task_type.Kolom key berisi kode unik untuk setiap ukuran kinerja. Kolom label berisi label yang menjelaskan ukuran kinerja. Kolom task_type berisi tipe tugas yang dilakukan oleh model, apakah tugasnya adalah klasifikasi atau regresi. Dengan menggunakan objek data.table, pengguna dapat melakukan manipulasi data dengan lebih mudah dan cepat, seperti pengurutan, penyaringan, dan penghitungan agregat.**
+
+```{r}
+msr_tbl[1:5, .(key, packages, predict_type, task_properties)]
+```
+
+**Analisis :  Tampilan 5 baris pertama dari objek data.table yang dibuat dari objek mlr_measures yang berisi berbagai ukuran kinerja yang dihasilkan oleh model dalam pembelajaran mesin. Objek data.table msr_tbl terdiri dari 4 kolom yaitu key, packages, predict_type, dan task_properties. Kolom key berisi kode unik untuk setiap ukuran kinerja. Kolom packages berisi nama paket R yang menyediakan implementasi ukuran kinerja tertentu. Kolom predict_type berisi jenis output yang dihasilkan oleh model, apakah berupa nilai prediksi atau probabilitas prediksi. Kolom task_properties berisi properti tugas, seperti jenis masalah klasifikasi atau regresi dan jumlah kelas atau variabel dependen yang ada pada data. Dengan menggunakan objek data.table, pengguna dapat melakukan manipulasi data dengan lebih mudah dan cepat, seperti pengurutan, penyaringan, dan penghitungan agregat.**
+
+```{r}
+as.data.table(lrn("classif.log_reg")$param_set)
+```
+
+**Analisis : Tampilan objek data.table yang dibuat dari objek parameter set yang diperoleh dari objek learner yang ditentukan. Objek learner dalam hal ini adalah learner untuk klasifikasi menggunakan regresi logistik. Objek data.table yang dihasilkan memiliki beberapa kolom yaitu param_id, label, type, default, range, dan tunable. Kolom param_id berisi kode unik untuk setiap parameter. Kolom label berisi label yang menjelaskan parameter. Kolom type menunjukkan tipe data yang diharapkan untuk parameter. Kolom default menunjukkan nilai default dari parameter. Kolom range menunjukkan rentang nilai yang diperbolehkan untuk parameter. Kolom tunable menunjukkan apakah parameter dapat dioptimalkan selama pembelajaran mesin. Dengan menggunakan objek data.table, pengguna dapat melakukan manipulasi data dengan lebih mudah dan cepat, seperti pengurutan, penyaringan, dan penghitungan agregat.**
+
+```{r}
+as.data.table(lrn("classif.lda")$param_set)
+```
+
+**Analisis : Tampilan objek data.table yang dibuat dari objek parameter set yang diperoleh dari objek learner yang ditentukan. Objek learner dalam hal ini adalah learner untuk klasifikasi menggunakan Analisis Diskriminan Linier (LDA). Dalam kasus ini, karena LDA merupakan metode pembelajaran yang sederhana, maka parameter yang dapat diatur sangat terbatas dan hanya ada satu parameter yaitu prior. Dengan menggunakan objek data.table, pengguna dapat melakukan manipulasi data dengan lebih mudah dan cepat, seperti pengurutan, penyaringan, dan penghitungan agregat.**
+
+## Pengukuran
+
+```{r}
+resampling = rsmp("holdout")
+rr = resample(task = task_audit, learner = learner1, resampling = resampling)
+```
+
+**Analisis :  Kode R diatas adalah objek resampling, yang dilakukan dengan menggunakan resampling method holdout. Objek resampling ini kemudian digunakan untuk melakukan resampling pada dataset task_audit menggunakan learner learner1.Resampling method holdout adalah teknik yang paling sederhana, di mana dataset dibagi menjadi dua subset, yaitu data latih (train) dan data uji (test). Data latih digunakan untuk melatih model, sementara data uji digunakan untuk menguji performa model. Resampling method lain yang dapat digunakan termasuk cross-validation, bootstrapping, time series splitting, dan lain sebagainya. Objek rr yang dihasilkan dari resampling akan berisi metrik evaluasi performa model yang digunakan. Metrik yang umum digunakan meliputi akurasi, presisi, recall, F1-score, dan lain-lain.**
+
+
+```{r}
+rr$aggregate(msr("classif.acc"))
+```
+
+**Analisis : Kode R di atas adalah hasil akurasi dari model yang dilatih dan diuji dengan menggunakan objek resampling metode holdout. Akurasi ini diperoleh dari hasil perhitungan perbandingan antara jumlah prediksi yang benar dengan jumlah total data pada data uji. Dalam kasus ini, akurasi dari model adalah 0.9186047 atau sekitar 91,86%. Artinya, dari 100 data uji, model mampu memprediksi dengan benar sekitar 91 sampai 92 data.**
+
+```{r}
+lrns = c(learner1, lrn("classif.featureless"))
+d = benchmark_grid(task = task_audit, learners = lrns, resampling = resampling)
+bmr = benchmark(design = d)
+```
+
+**Analisis : Kode R diatas adalah objek bmr, yang merupakan hasil benchmarking dua model (learner1 dan learner featureless) menggunakan dataset task_audit dengan menggunakan resampling method holdout.Benchmarking digunakan untuk membandingkan performa model yang berbeda pada dataset yang sama dengan resampling method yang sama. Objek lrns berisi dua model, yaitu learner1 dan learner featureless. Model learner1 merupakan model logistic regression, sedangkan model learner featureless adalah model yang tidak menggunakan fitur apapun dalam pembelajarannya. Objek d berisi daftar variasi parameter yang mungkin digunakan pada setiap model. Setiap kombinasi parameter ini akan diuji menggunakan resampling method holdout pada dataset task_audit. Objek bmr berisi hasil evaluasi performa model untuk setiap kombinasi parameter yang diuji. Hasil ini meliputi nilai metrik evaluasi performa, waktu pelatihan model, dan parameter yang digunakan pada model. Dengan melakukan benchmarking, kita dapat memperoleh informasi yang lebih detail tentang performa model dan menentukan model terbaik untuk digunakan pada dataset yang diberikan.**
+
+```{r}
+acc = bmr$aggregate(msr("classif.acc"))
+acc[, .(task_id, learner_id, classif.acc)]
+```
+**Analisis : Kode R diatas adalah hasil agregasi nilai metrik evaluasi akurasi (classif.acc) dari objek bmr yang merupakan hasil benchmarking dua model (learner1 dan learner featureless) menggunakan dataset task_audit dengan menggunakan resampling method holdout. Dalam kasus ini, terdapat dua model yang dibandingkan, yaitu logistic regression dan model featureless. Akurasi dari masing-masing model adalah 0.9767442 dan 0.6085271. Model logistic regression memiliki akurasi yang lebih tinggi (0.9767442) dibandingkan dengan model featureless (0.6085271). Dalam kasus ini, akurasi mungkin merupakan metrik evaluasi yang cukup untuk mengevaluasi performa model karena kelas pada data tidak terlalu tidak seimbang. Namun, jika kelas pada data tidak seimbang atau jika ada biaya yang berbeda antara kesalahan prediksi dari kelas yang berbeda, perlu dilakukan evaluasi tambahan dengan metrik yang berbeda atau menggunakan teknik yang lebih lanjut seperti confusion matrix atau ROC curve.**
+
+## Strategi Resampling
+
+### Query
+
+```{r}
+as.data.table(mlr_resamplings)
+```
+
+### Construction
+
+```{r}
+resampling = rsmp("holdout")
+print(resampling)
+```
+
+**Analisis : Kode R di atas adalah informasi tentang objek resampling holdout, yang digunakan untuk membagi dataset menjadi dua subset, yaitu subset latih dan subset uji. Objek holdout memiliki parameter ratio, yang menunjukkan rasio subset uji terhadap seluruh dataset. Dalam kasus ini, nilai ratio yang digunakan adalah 0.6667, yang berarti subset uji terdiri dari 66.67% dari seluruh dataset, sedangkan subset latih terdiri dari 33.33%.**
+
+```{r}
+resampling = rsmp("holdout", ratio = 0.8)
+```
+
+```{r}
+resampling$param_set$values = list(ratio = 0.5)
+```
+
+```{r}
+resampling = rsmp("cv", folds = 10)
+```
+
+### Instantiation
+
+```{r}
+resampling = rsmp("holdout", ratio = 0.8)
+resampling$instantiate(task_audit)
+train_ids = resampling$train_set(1)
+test_ids = resampling$test_set(1)
+str(train_ids)
+```
+
+```{r}
+str(test_ids)
+```
+
+### Eksekusi
+
+```{r}
+resampling = rsmp("cv", folds = 4)
+rr = resample(task_audit, learner1, resampling)
+```
+
+```{r}
+print(rr)
+```
+
+```{r}
+as.data.table(rr)
+```
+
+```{r}
+acc = rr$score(msr("classif.acc"))
+acc[, .(iteration, classif.acc)]
+```
+
+**Analisis : Hasil tersebut menunjukkan hasil akurasi (classif.acc) dari resampling holdout (dalam 4 iterasi) dengan menggunakan learner1 (classif.log_reg) pada data audit. Dapat dilihat bahwa akurasi pada setiap iterasi berbeda-beda, namun rata-rata akurasi dari keempat iterasi tersebut adalah sebesar 0.9611.**
+
+
+```{r}
+rr$aggregate(msr("classif.acc"))
+```
+
+**Analisis :  tersebut menunjukkan hasil agregat akurasi (classif.acc) dari resampling holdout dengan menggunakan learner1 (classif.log_reg) pada data audit. Hasil akurasi tersebut adalah sebesar 0.9613001, yang merupakan rata-rata akurasi dari keempat iterasi yang dilakukan pada resampling holdout.**
+
+```{r}
+rr$aggregate(msr("classif.acc", average = "micro"))
+```
+
+**Analisis : Hasil tersebut menunjukkan hasil agregat akurasi (classif.acc) dengan average micro dari resampling holdout dengan menggunakan learner1 (classif.log_reg) pada data audit. Hasil akurasi tersebut adalah sebesar 0.9612903, yang juga merupakan rata-rata akurasi dari keempat iterasi yang dilakukan pada resampling holdout, namun dengan menggunakan metode penghitungan akurasi average micro.**
+
+### Inspeksi
+
+```{r}
+rrdt = as.data.table(rr)
+rrdt
+```
+
+
+```{r}
+rrdt$prediction
+```
+
+**Analisis : hasil prediksi dari model untuk setiap iterasi resampling yang dilakukan. Terdapat empat prediksi yang diberikan, di mana setiap prediksi memiliki 194, 194, 194, dan 193 baris hasil prediksi untuk setiap observasi. Setiap baris hasil prediksi terdiri dari nilai "truth" yang merupakan nilai aktual dari observasi, "response" yang merupakan hasil prediksi model, serta "prob.1" dan "prob.0" yang merupakan probabilitas hasil prediksi model untuk kelas 1 dan kelas 0, masing-masing. Insight yang dapat diambil adalah informasi hasil prediksi model pada setiap iterasi resampling, yang dapat digunakan untuk mengevaluasi performa model secara lebih detail.**
+
+```{r}
+all.equal(rrdt$prediction, rr$predictions())
+```
+
+**Analisis : Hal tersebut menunjukkan bahwa hasil prediksi dari objek rrdt dan objek rr adalah sama. Fungsi all.equal() digunakan untuk membandingkan dua objek secara mendetail dan menghasilkan nilai TRUE jika kedua objek tersebut benar-benar sama. Dalam hal ini, hal ini memberikan kepastian bahwa hasil prediksi dari model yang dilatih pada dataset credit_data dan kemudian diuji menggunakan holdout validation memang sama dengan hasil prediksi dari model yang dilatih pada keseluruhan dataset dan kemudian diuji menggunakan 10-fold cross-validation.**
+
+```{r}
+pred = rr$prediction()
+pred
+```
+
+```{r}
+pred$score(msr("classif.acc"))
+```
+
+**Analisis : Output tersebut menunjukkan akurasi dari model prediksi yang dihasilkan menggunakan resampling. Dalam kasus ini, akurasi yang dihasilkan adalah sebesar 0.9612903.**
+
+## Resampling with stratification and grouping
+
+> Peran kolom lain yang tersedia di mlr3 adalah "strata", yang mengimplementasikan pengambilan sampel berlapis.
+Pengambilan sampel bertingkat memastikan bahwa satu atau lebih karakteristik berbeda dalam kumpulan data pelatihan 
+dan pengujian distribusinya sama dengan tugas awal, mencakup semua pengamatan.Sangat berguna ketika 
+fungsi-fungsi tertentu sangat tidak seimbang (kumpulan data tidak seimbang) dan jika ingin memeriksanya
+distribusi karakteristik ini serupa untuk setiap iterasi resampling. Stratifikasi biasanya digunakan dalam penugasan
+klasifikasi tidak seimbang, di mana kelas fitur target tidak seimbang. Dalam contoh di bawah ini  menerapkan
+Bagian Catatan Pemeriksaan Dataset audit-sebelum stratum.
+
+
+```{r}
+prop.table(table(task_audit$data(cols = "Risk")))
+```
+
+**Analisis : Dari hasil output, dapat dilihat bahwa variabel "Risk" memiliki 2 kategori yaitu 1 dan 0. Proporsi kategori 1 sebesar 0.3935484 atau sekitar 39.35%, sedangkan proporsi kategori 0 sebesar 0.6064516 atau sekitar 60.65%. Hal ini menunjukkan bahwa mayoritas data pada variabel "Risk" adalah kategori 0.**
+
+```{r}
+r = rsmp("cv", folds = 3)
+r$instantiate(task_audit)
+prop.table(table(task_audit$data(rows = r$test_set(1), cols = "Risk")))
+```
+
+**Analisis : Hal tersebut menunjukkan proporsi kelas "Risk" pada data test set pertama dari skema validasi silang 3-fold. Dapat dilihat bahwa proporsi kelas "Risk" pada data test set pertama adalah 0.36 untuk kelas 1 dan 0.64 untuk kelas 0. Hal ini dapat berguna untuk mengevaluasi seberapa baik performa model pada data dengan proporsi kelas yang tidak seimbang.**
+
+```{r}
+prop.table(table(task_audit$data(rows = r$test_set(2), cols = "Risk")))
+```
+
+**Analisis : Proporsi kelas pada data uji (test set) pada lipatan (fold) ke-2 saat menggunakan validasi silang dengan skema lipatan (folds) sebanyak 3. Proporsi kelas untuk kelas 1 adalah 0.3837209 dan untuk kelas 0 adalah 0.6162791. Hal ini menunjukkan bahwa proporsi kelas pada setiap lipatan dapat sedikit berbeda dan dapat mempengaruhi kinerja model pada lipatan tersebut.**
+
+```{r}
+prop.table(table(task_audit$data(rows = r$test_set(3), cols = "Risk")))
+```
+
+**Analisis : Hasil proporsi nilai Risk pada masing-masing set pengujian dari model yang dihasilkan melalui validasi silang (cross-validation) dengan metode "cv" dan jumlah lipatan (folds) sebanyak 3 (r = rsmp("cv", folds = 3)) pada dataset task_audit. Proporsi nilai Risk pada set pengujian pertama adalah 0.363 (Risk=1) dan 0.637 (Risk=0), set pengujian kedua adalah 0.384 (Risk=1) dan 0.616 (Risk=0), dan set pengujian ketiga adalah 0.434 (Risk=1) dan 0.566 (Risk=0). Output ini memberikan insight tentang variasi proporsi nilai Risk pada masing-masing set pengujian, yang dapat membantu kita memahami performa model secara lebih komprehensif.**
+
+### menggunakan stratum
+
+```{r}
+task_audit$col_roles$stratum = "Risk"
+r = rsmp("cv", folds = 3)
+r$instantiate(task_audit)
+
+prop.table(table(task_audit$data(rows = r$test_set(1), cols = "Risk")))
+```
+
+**Analisis : Terlihat hasil proporsi jumlah kasus dengan "Risk"=1 dan "Risk"=0 pada fold 1 setelah mengatur strata menjadi "Risk". Proporsi tersebut adalah 0.3938224 dan 0.6061776, yang berbeda sedikit dengan hasil proporsi sebelumnya sebelum strata diatur (0.3629344 dan 0.6370656). Hal ini menunjukkan bahwa pengaturan strata "Risk" dalam proses cross-validation mempengaruhi pembagian data uji dan data latih pada tiap fold.**
+
+```{r}
+prop.table(table(task_audit$data(rows = r$test_set(2), cols = "Risk")))
+```
+
+**Analisis : Menunjukkan hasil proporsi antara kelas 1 dan kelas 0 pada data test ke-2 setelah dilakukan cross-validation dengan metode k-fold. Proporsi kelas 1 adalah 0.3938224 dan proporsi kelas 0 adalah 0.6061776. Hal ini menunjukkan bahwa proporsi antara kelas 1 dan kelas 0 pada data test ke-2 tidak berbeda dengan proporsi pada seluruh dataset. Hal ini menunjukkan bahwa proses cross-validation dilakukan dengan baik dan data test yang dihasilkan memiliki karakteristik yang representatif terhadap seluruh dataset.**
+
+```{r}
+prop.table(table(task_audit$data(rows = r$test_set(3), cols = "Risk")))
+```
+
+**Analisis : Menunjukkan proporsi label kelas "Risk" dalam setiap subset data uji yang dihasilkan oleh validasi silang. Dalam kasus ini, model dipilih untuk melakukan validasi silang dengan 3 lipatan (folds). Dalam setiap fold, data uji dipilih secara acak dari dataset asli dengan proporsi label kelas yang sama seperti di dataset asli. Hasil proporsi label kelas dalam setiap fold dapat memberikan insight tentang seberapa representatif setiap fold dalam mewakili dataset asli. Dalam kasus ini, proporsi label kelas yang diperoleh dari setiap fold hampir sama dengan proporsi label kelas dalam dataset asli. Ini menunjukkan bahwa validasi silang telah membagi data secara acak dengan proporsi label kelas yang serupa di setiap fold. Hal ini menghasilkan validasi silang yang dapat diandalkan untuk mengukur performa model secara objektif.**
+
+### Resampling bootstrap
+
+```{r}
+resampling = rsmp("bootstrap")
+resampling$instantiate(task_audit)
+train_b = resampling$train_set(1)
+test_b = resampling$test_set(1)
+str(train_b)
+```
+
+```{r}
+str(test_b)
+```
+
+```{r}
+reg_log_b <- resample(task = task_audit, learner = learner1, resampling = resampling)
+```
+
+```{r}
+# akurasi regresi logistik dengan bootstrap
+reg_log_b$aggregate(msr("classif.acc"))
+```
+
+**Analisis : 0.9572909 yang merupakan hasil dari penghitungan akurasi klasifikasi (classif.acc) pada model regresi logistik dengan teknik bootstrap. Hasil akurasi sebesar 0.9572909 menunjukkan bahwa model regresi logistik yang digunakan memiliki tingkat akurasi yang cukup tinggi dalam memprediksi klasifikasi data. Namun, perlu diperhatikan bahwa hasil akurasi ini bisa saja berbeda pada dataset yang berbeda atau jika dilakukan pengaturan parameter yang berbeda pada model.**
+
+```{r}
+# Rata rata akurasi regresi logistik dengan bootstrap
+reg_log_b$aggregate(msr("classif.acc", average = "micro"))
+```
+
+**Analisis : Menunjukkan hasil rata-rata akurasi dari model regresi logistik dengan metode bootstrap yang dihitung dengan menggunakan mean squared error (msr) dan rata-rata mikro (average = "micro"). Hasilnya adalah 0.9574044, yang menunjukkan bahwa model memiliki akurasi yang tinggi dalam memprediksi hasil.**
+
+```{r}
+#perbandingan akurasi setiap iterasi
+acc = reg_log_b$score(msr("classif.acc", average = "micro"))
+acc[, .(iteration, classif.acc)]
+```
+
+**Analisis : Output tersebut menunjukkan perbandingan akurasi setiap iterasi pada model regresi logistik dengan bootstrap. Terdapat 30 iterasi dan akurasi pada setiap iterasi bervariasi dari 0.927 hingga 0.982. Rata-rata akurasi secara keseluruhan pada model regresi logistik dengan bootstrap adalah sebesar 0.957. Hal ini menunjukkan bahwa model regresi logistik tersebut cukup baik dalam memprediksi data. Namun, perlu diingat bahwa hasil akurasi pada setiap iterasi dapat bervariasi tergantung pada dataset dan random seed yang digunakan.**
+
+## Plotting Resampling
+
+```{r}
+# histogram
+r = rsmp("cv", folds = 30)
+rr = resample(task_audit, learner1, r)
+autoplot(rr, type = "histogram", bins =30)
+```
+
+**Analisis : Histogram yang menunjukkan distribusi akurasi dari hasil resampling menggunakan cross-validation dengan 30 folds. Histogram tersebut menunjukkan frekuensi akurasi pada kisaran tertentu, dimana semakin tinggi frekuensi, semakin banyak data yang memiliki akurasi di kisaran tersebut. Histogram ini berguna untuk memvisualisasikan distribusi akurasi dan dapat memberikan insight tentang sebaran data dan performance model secara keseluruhan.**
+
+```{r}
+#Prediction Plot
+task = task_audit$select(c("Sector_score", "Audit_Risk"))
+resampling = rsmp("cv", folds = 3)
+object = resample(task, learner1, resampling, store_models = TRUE)
+autoplot(object, type="prediction")
+```
+**Analisis : Plot dari prediksi yang dihasilkan oleh model regresi logistik terhadap data pada kolom "Sector_score" dan "Audit_Risk". Pada sumbu x dan y terdapat nilai dari "Sector_score" dan "Audit_Risk" yang ada pada data. Kemudian warna pada tiap titik merepresentasikan prediksi model terhadap titik tersebut, dengan warna biru menandakan nilai prediksi bernilai 0 (mewakili kelas 0) dan warna merah menandakan nilai prediksi bernilai 1 (mewakili kelas 1). Plot ini dapat membantu untuk melihat pola atau kecenderungan prediksi model pada data yang dianalisis.**
+
+## Confusion Matrix-Based Measures
+
+```{r}
+mlr3measures::confusion_matrix(truth = pred$truth,
+  response = pred$response, positive = task_audit$positive)
+```
+
+**Analisis : Output tersebut menunjukkan confusion matrix yang dihasilkan dari prediksi model terhadap data testing. Terdapat 273 true positive (TP), 462 true negative (TN), 8 false negative (FN), dan 32 false positive (FP). Selain itu, output juga menampilkan beberapa metrik evaluasi kinerja model seperti accuracy, cross-entropy, f1-score, dan sebagainya. Dari hasil evaluasi tersebut, terlihat bahwa model memiliki nilai akurasi (acc) sebesar 0.9484 yang artinya model mampu memprediksi dengan benar sebanyak 94.84% dari seluruh data testing. Sedangkan nilai cross-entropy error (ce) sebesar 0.0516 menunjukkan tingkat error yang dihasilkan oleh model.**
+
+**Selain itu, juga dapat dilihat nilai lainnya seperti true positive rate (tpr) atau sensitivity sebesar 0.8951 yang menunjukkan kemampuan model dalam memprediksi data positive dengan benar, false positive rate (fpr) sebesar 0.0170 yang menunjukkan tingkat kesalahan dalam memprediksi data negative sebagai positive, precision atau positive predictive value (ppv) sebesar 0.9715 yang menunjukkan proporsi dari hasil prediksi positive yang benar, dan negative predictive value (npv) sebesar 0.9352 yang menunjukkan proporsi dari hasil prediksi negative yang benar.**
+
+```{r}
+pred$set_threshold(0.99)
+mlr3measures::confusion_matrix(pred$truth, pred$response, task_audit$positive)
+```
+
+**Analisis : Output tersebut menunjukkan confusion matrix dan beberapa metrik evaluasi performa model klasifikasi setelah mengubah threshold menjadi 0.99. Dalam kasus ini, threshold standar sebelumnya adalah 0.5, tetapi telah diubah menjadi 0.99. Dapat dilihat bahwa perubahan threshold tidak mempengaruhi confusion matrix dan metrik evaluasi performa secara signifikan. Nilai akurasi, precision, recall, f1-score, dan semua metrik lainnya tetap sama. Ini menunjukkan bahwa model dapat mempertahankan performa yang baik bahkan ketika threshold diubah secara signifikan. **
+
+```{r}
+pred$set_threshold(0.01)
+mlr3measures::confusion_matrix(pred$truth, pred$response, task_audit$positive)
+```
+
+**Analisis : Output di atas menunjukkan matriks kebingungan untuk model prediksi di mana ambang batas telah diubah dari nilai default 0,5 menjadi 0,01. Hasilnya menunjukkan bahwa tidak ada perubahan pada matriks kebingungan, nilai akurasi, atau ukuran kinerja lainnya, karena nilai ambang batas hanya sedikit berubah. Oleh karena itu, model prediksi yang dihasilkan sebelumnya dengan nilai ambang batas 0,5 masih dapat digunakan untuk memprediksi kelas target dengan akurasi yang tinggi.**
+
+## ROC curve
+
+```{r}
+thresholds = sort(pred$prob[,1])
+
+rocvals = data.table::rbindlist(lapply(thresholds, function(t) {
+  pred$set_threshold(t)
+  data.frame(
+    threshold = t,
+    FPR = pred$score(msr("classif.fpr")),
+    TPR = pred$score(msr("classif.tpr"))
+  )
+}))
+
+head(rocvals)
+```
+
+**Analisis : menghasilkan suatu data frame rocvals yang berisi nilai False Positive Rate (FPR), True Positive Rate (TPR), dan threshold pada setiap titik threshold pada model. Dengan rocvals yang dihasilkan, kita dapat membuat ROC curve (Receiver Operating Characteristic curve) dan menghitung nilai AUC (Area Under the Curve) untuk mengevaluasi kinerja model dalam memprediksi kelas 1 (positive). Semakin tinggi nilai AUC, semakin baik kinerja model dalam memprediksi kelas 1.**
+
+```{r}
+library(ggplot2)
+
+ggplot(data = rocvals, aes(x = FPR, y = TPR)) +
+  geom_line() +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+  xlab("False Positive Rate") +
+  ylab("True Positive Rate") +
+  ggtitle("ROC Curve") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  # Menambahkan argumen width dan height
+  labs(width = 20, height = 15)
+```
+
+**Analisis : Menghasilkan sebuah plot ROC (Receiver Operating Characteristic) curve yang menunjukkan performa model dalam membedakan antara true positive rate (TPR) dan false positive rate (FPR) pada berbagai nilai threshold. Kurva ROC adalah salah satu metrik evaluasi yang umum digunakan dalam klasifikasi biner. Di plot ini, garis putus-putus mewakili performa acak (random) dan area di bawah kurva (AUC) adalah metrik evaluasi yang menunjukkan seberapa baik model membedakan antara kelas positif dan negatif pada semua nilai threshold. Semakin dekat AUC ke 1, semakin baik performa model. Dari plot tersebut, dapat dilihat bahwa model yang digunakan dalam contoh di atas memiliki performa yang cukup baik, karena AUC mendekati 1 dan garis kurva ROC mendekati sudut kiri atas plot.**
+
+## Melanjutkan Teknik Resampling pada Regresi Logistik dan LDA
+
+```{r}
+standardize <- po("scale")
+# Jika dup_size=1, jumlah amatan kelas  minoritas
+#bertambah sebanyak 
+#1*(jumlah amatan awal)+jumlah amatan awal
+
+smote <- po("smote",dup_size=1)
+```
+
+
+```{r}
+standardize$train(list(task_audit))[[1]]$data() %>% glimpse
+```
+
+```{r}
+smote$train(list(task_audit))[[1]]$data() %>% count(Risk)
+```
+
+**Analisis : Menunjukkan hasil dari melakukan SMOTE (Synthetic Minority Over-sampling Technique) pada data task_audit. Setelah dilakukan SMOTE, jumlah observasi pada variabel Risk menjadi seimbang, yaitu 610 observasi pada kategori 1 (terdapat risiko) dan 470 observasi pada kategori 0 (tidak terdapat risiko). SMOTE dilakukan untuk mengatasi ketidakseimbangan kelas pada data task_audit.**
+
+```{r}
+reglog <- GraphLearner$new(standardize %>>% smote %>>% lrn("classif.log_reg"))
+reglog
+```
+
+```{r}
+lda <- GraphLearner$new(standardize %>>%
+smote %>>%                          lrn("classif.lda",method="moment"))
+lda
+```
+
+## Intepretasi Model
+>Tahap ini biasanya dilakukan untuk melihat bagaimana pengaruh peubah-peubah prediktor terhadap respon menurut 
+masing-masing model. Misalnya saja dalam regresi logistik besarnya nilai koefisien,odds ratio dan p-value bisa 
+menggambarkan bagaimana pengaruh peubah prediktor terhadap respon.Sebelum kita bisa memperoleh interpretasi 
+dari suatu model dalam mlr3, kita perlu melakukan proses modeling/training terlebih dahulu dengan menggunakan 
+keseluruhan data. Kemudian, Untuk menampilkan nilai koefisien dan p-value pada model regresi logistik, kita bisa 
+menggunakan fungsi summary.
+
+## Regresi Logistik
+
+```{r}
+# train model dengan keseluruhan data
+reglog$train(task = task_audit) 
+summary(reglog$model$classif.log_reg$model)
+```
+
+**Analisis : Output tersebut adalah summary dari model regresi logistik yang telah di-train menggunakan keseluruhan data. Model ini memperlihatkan perkiraan koefisien untuk setiap variabel independen, standar error, uji t-statistik, dan p-value. Pada output tersebut, kita dapat melihat bahwa hanya variabel Sector_score yang memiliki p-value lebih dari 0.05, yang berarti tidak signifikan secara statistik dan tidak berpengaruh pada model. Variabel Audit_Risk memiliki p-value yang lebih kecil dari 0.05, yang berarti signifikan secara statistik dan berpengaruh pada model. Variabel intercept juga tidak signifikan. Residual deviance yang sangat kecil menunjukkan bahwa model fit dengan sangat baik pada data. AIC yang kecil menunjukkan bahwa model ini adalah model yang lebih baik dibandingkan dengan model yang lain.**
+
+```{r}
+broom::tidy(reglog$model$classif.log_reg$model)
+```
+
+**Analisis : Output tersebut menunjukkan 3 variabel independen yaitu Audit_Risk, Sector_score, dan Intercept. Audit_Risk memiliki koefisien sebesar 33153.653, artinya peningkatan 1 unit pada Audit_Risk akan meningkatkan probabilitas terjadinya kecurangan akuntansi (response=1) sebesar 33153.653 kali. Variabel Sector_score memiliki koefisien negatif sebesar -1.571, artinya peningkatan skor sektor akan menurunkan probabilitas terjadinya kecurangan akuntansi. Namun, koefisien tersebut kecil sehingga pengaruh Sector_score terhadap respon relatif kecil. Koefisien intercept sebesar 5287.851 menunjukkan probabilitas terjadinya kecurangan akuntansi pada saat Audit_Risk dan Sector_score memiliki nilai nol.**
+
+```{r}
+broom::tidy(reglog$model$classif.log_reg$model) %>% 
+  mutate(OddsRatio = exp(estimate))
+```
+
+**Analisis : Output tersebut memperlihatkan ringkasan model regresi logistik, termasuk koefisien estimasi, standar error, nilai t-statistik, dan p-value. Selanjutnya, dengan menggunakan fungsi mutate() dari package dplyr, Odds Ratio (rasio antara probabilitas sukses dan gagal) juga dihitung dengan mengaplikasikan formula Odds Ratio = exp(estimate) pada tiap-tiap variabel prediktor yang disertakan pada model. Insight yang dapat diambil dari output ini adalah bahwa variabel Audit_Risk memiliki pengaruh positif yang sangat besar terhadap variabel respon, sedangkan variabel Sector_score memiliki pengaruh negatif yang kecil. Nilai Odds Ratio pada variabel Audit_Risk dan Sector_score sangat besar, yang menandakan bahwa adanya perubahan pada nilai-nilai variabel prediktor tersebut dapat memiliki dampak yang signifikan terhadap variabel respon.**
+
+```{r}
+# menampilkan informasi tambahan tentang model
+broom::glance(reglog$model$classif.log_reg$model)
+```
+
+**Analisis : Output di atas menunjukkan informasi tambahan tentang model logistic regression yang telah dilatih pada data audit.Dengan mempertimbangkan nilai-nilai AIC dan BIC, kita dapat memilih model yang lebih baik antara dua model yang berbeda dengan jumlah variabel prediktor yang berbeda. Semakin kecil nilai AIC atau BIC, semakin baik model yang dilatih.**
+
+# LDA
+> tidak menggunakan model LDA dikarenakan adanya kesaalahan teknis pada learner 2
+
+```{r}
+# train model dengan keseluruhan data
+lda$train(task = task_audit)
+```
+
+```{r}
+coef_lda <- coef(lda$model$classif.lda$model)
+coef_lda
+```
+
+**Analisis : Dari output di atas, koefisien model LDA untuk variabel Audit_Risk adalah -0.3277, sedangkan koefisien untuk variabel Sector_score adalah 1.0901. Koefisien negatif pada variabel Audit_Risk menunjukkan bahwa semakin rendah nilai Audit_Risk, semakin rendah kemungkinan untuk dianggap sebagai risiko (Risk=1). Sebaliknya, koefisien positif pada variabel Sector_score menunjukkan bahwa semakin tinggi nilai Sector_score, semakin tinggi kemungkinan untuk dianggap sebagai risiko (Risk=1).**
+
+```{r}
+predictedLD <- predict(lda$model$classif.lda$model,newdata = audit)
+plotLD <- data.frame(predictedLD$x,class=predictedLD$class)
+glimpse(plotLD)
+```
+
+```{r}
+plotLD %>% count(class)
+```
+
+## ROC Analysis
+
+> Analisis ROC (Receiver Operating Characteristic) banyak digunakan untuk mengevaluasi pengklasifikasi biner. 
+Meskipun ada ekstensi untuk pengklasifikasi multikelas (lihat misalnya Hand and Till (2001)), kita hanya akan 
+membahas kasus klasifikasi biner yang jauh lebih mudah di sini. Untuk pengklasifikasi biner yang memprediksi 
+kelas diskrit, kita dapat menghitung confusion matrix yang menghitung besaran berikut True positives (TP): 
+Contoh yang benar-benar positif dan diklasifikasikan dengan benar sebagai positif. True Negatives (TN): 
+Contoh yang benar-benar negatif dan diklasifikasikan dengan benar sebagai negatif. Positif palsu (FP): 
+Contoh yang sebenarnya negatif tetapi salah diklasifikasikan sebagai positif. Negatif Palsu (FN): 
+Contoh yang sebenarnya positif tetapi salah diklasifikasikan sebagai negatif.
+
+```{r}
+set.seed(1110)
+df_split = sort(sample(nrow(df), nrow(df)*0.8)) ## 80% of the dataset randomly selected
+train<-df[df_split,]
+test<-df[-df_split,]
+```
+
+```{r}
+df_logit <- glm(Risk~. ,data = train,family = "binomial"(link="logit"))
+summary(df_logit)
+```
+
+```{r}
+fitted.results <- predict(df_logit, newdata=test, type='response')
+fitted.results <- ifelse(fitted.results > 0.5, 1, 0)
+table(fitted.results, test$Risk)
+```
+
+```{r}
+library(ROCR)
+predict <- fitted(df_logit)
+pred <- prediction(predict, train$Risk)
+perf <- performance(pred, measure = "tpr", x.measure = "fpr")
+plot(perf, main="sensitivity vs false positive rate",colorize=TRUE)
+```
+
+**Analisis : Output dari kode tersebut adalah grafik kurva ROC (Receiver Operating Characteristic) yang menunjukkan hubungan antara sensitivitas (true positive rate) dan tingkat false positive rate. Kurva ROC digunakan untuk mengevaluasi kinerja model klasifikasi, di mana semakin dekat kurva ke sudut kiri atas, semakin baik kinerja model. Pada grafik tersebut, semakin besar luas area di bawah kurva (AUC), semakin baik kinerja model. Dalam hal ini, kurva ROC menunjukkan kinerja model logistik yang relatif baik, karena AUC mendekati 1.**
+
+```{r}
+Accuracy.logistic <- mean(fitted.results == test$Risk)*100
+print(paste('Accuracy is ',Accuracy.logistic,"%"))
+```
+
+**Analisis : Output tersebut menunjukkan hasil akurasi dari model logistik yang dihitung berdasarkan perbandingan antara hasil prediksi dari model dengan data test yang sebenarnya. Dalam hal ini, model logistik memiliki akurasi sebesar 96.77%.**
+
+```{r}
+print(paste('Test error is ',100-Accuracy.logistic,"%"))
+```
+
+**Analisis : Output di atas menunjukkan persentase error pada data uji yang dihasilkan oleh model. Dalam hal ini, test error sebesar 3.2258064516129%, yang artinya model berhasil mengklasifikasikan 96.7741935483871% data uji dengan benar. Semakin kecil nilai test error, semakin baik performa model.**

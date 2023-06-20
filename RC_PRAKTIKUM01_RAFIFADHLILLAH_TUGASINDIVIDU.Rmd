@@ -1,0 +1,546 @@
+---
+title: "Tugas Individu Praktikum SSD"
+output:
+  html_document:
+    df_print: paged
+---
+## Nama : Rafi Fadhlillah
+## NIM : 121450143
+
+# Data Wrangling dengan R
+## Package
+```{r eval=FALSE}
+install.packages("tidyverse")
+install.packages("skimr")
+install.packages("ggpubr")
+```
+
+
+Memanggil Package
+
+
+```{r message=FALSE}
+library(tidyverse)
+library(skimr)
+library(ggpubr)
+```
+
+
+
+## Data Import
+
+
+```{r}
+data_house <- read.csv("C:/Users/rafif/Downloads/house_price1.csv",stringsAsFactors = TRUE)
+glimpse(data_house)
+```
+
+
+## Data Cleaning
+
+
+### Menghapus Missing Data
+
+
+```{r}
+skim_without_charts(data_house)
+```
+
+Karena kolom `Alley` terlalu banyak observasi yang missing sebaiknya kolom `Alley` dihapus
+
+
+```{r}
+dt_res1 <- data_house %>% 
+          #menghapus kolom Alley
+          select(-Alley) %>% 
+          #menghapus semua baris yang mengandung missing value
+          na.omit()
+```
+
+```{r}
+skim_without_charts(dt_res1)
+```
+
+
+### Koreksi Kesalahan pada Data
+
+
+```{r}
+skim_without_charts(data_house)
+```
+
+```{r}
+dt_res2 <- data_house %>% mutate(Street=case_when(Street=="Pavr" ~ "Pave",
+                                        Street=="Pavd" ~ "Pave",
+                                        TRUE ~ Street))
+dt_res2 %>% count(Street)
+```
+
+
+### Koreksi Ketdiakonsistenan Data
+
+
+
+```{r}
+data_house %>% 
+  filter(GarageArea==0) %>% 
+  select(GarageArea,GarageType)
+
+```
+
+```{r}
+dt_res3 <- data_house %>% 
+            mutate(GarageType=case_when(GarageArea ==0 ~ NA,
+                                        TRUE ~ GarageType))
+```
+
+
+```{r}
+dt_res3 %>% 
+  filter(GarageArea==0) %>% 
+  select(GarageArea,GarageType)
+```
+Analisis : dari tabel diatas dapat dilihat bahwa nilai 0 selalu konsisten oleh karena itu dapat dilanjutkan ke proses berikutnya
+
+## Data Transformation
+
+Data transformation atau transformasi data adalah proses mengubah nilai atau tipe data dalam dataset sehingga dapat memperbaiki kualitas data atau membantu dalam analisis data. Transformasi data biasanya dilakukan sebagai langkah pra-pemrosesan sebelum melakukan analisis data.
+
+Transformasi logaritma digunakan untuk mengurangi efek heteroskedastisitas dan mengubah data yang memiliki distribusi yang condong menjadi lebih simetris.
+
+```{r}
+gghistogram(data = data_house,x = "SalePrice",fill = "steelblue")+
+  scale_y_continuous(expand = c(0,0))
+```
+
+Analisis : Code R tersebut merupakan sintaks untuk membuat histogram menggunakan package ggplot2 dengan data yang disimpan dalam objek data_house. Histogram ini akan menampilkan distribusi variabel "SalePrice" pada sumbu x dan jumlah frekuensi (count) pada sumbu y.
+
+gghistogram() merupakan fungsi utama yang digunakan untuk membuat histogram dalam package ggplot2. Argumen data digunakan untuk menyatakan objek data yang akan digunakan, sedangkan argumen x menyatakan variabel yang akan diplot pada sumbu x dan argumen fill menyatakan warna yang akan digunakan pada histogram.
+
+scale_y_continuous(expand = c(0,0)) merupakan perintah untuk mengatur skala pada sumbu y. Argumen expand dengan nilai c(0,0) menunjukkan bahwa tidak ada jarak (space) yang harus ditambahkan antara data dan batas grafik pada sumbu y.
+
+Sehingga keseluruhan sintaks tersebut akan menghasilkan histogram dengan sumbu x yang menampilkan distribusi variabel "SalePrice" dan sumbu y yang menampilkan jumlah frekuensi. Argumen fill juga digunakan untuk memberikan warna pada histogram, sedangkan perintah scale_y_continuous(expand = c(0,0)) digunakan untuk mengatur skala pada sumbu y.
+
+```{r}
+dt_res4 = data_house %>% 
+  mutate(log_SalePrice=log(SalePrice))
+```
+analisis : Code R di atas merupakan sebuah sintaks yang menggunakan package dplyr untuk mengubah dataset data_house dengan menambahkan variabel baru log_SalePrice yang merupakan hasil dari transformasi logaritma dari variabel SalePrice.
+
+Fungsi %>% digunakan untuk mengalirkan dataset data_house ke dalam fungsi berikutnya, yaitu mutate(). Fungsi mutate() digunakan untuk menambahkan atau mengubah variabel pada dataset dengan formula yang dituliskan setelah tanda =.
+
+Di dalam formula tersebut, log_SalePrice merupakan nama variabel baru yang akan ditambahkan pada dataset, sedangkan log(SalePrice) merupakan rumus untuk melakukan transformasi logaritma pada variabel SalePrice. Hasil transformasi logaritma tersebut kemudian disimpan dalam variabel baru log_SalePrice.
+
+Dengan demikian, dataset data_house akan ditambahkan dengan sebuah kolom baru bernama log_SalePrice yang berisi nilai transformasi logaritma dari variabel SalePrice. Dalam analisis data, transformasi logaritma ini seringkali dilakukan untuk mengurangi efek heteroskedastisitas dan mengubah data yang memiliki distribusi yang condong menjadi lebih simetris.
+
+
+```{r}
+gghistogram(data = dt_res4,x = "log_SalePrice",fill = "steelblue")+
+  scale_y_continuous(expand = c(0,0))
+```
+
+
+
+## Data Normalization
+Data normalization atau normalisasi data adalah salah satu teknik transformasi data yang digunakan untuk mengubah distribusi data menjadi mendekati distribusi normal atau standar. Normalisasi data biasanya dilakukan sebagai bagian dari pra-pemrosesan data sebelum melakukan analisis statistik.
+
+```{r}
+gghistogram(data = data_house,x = "SalePrice",fill = "steelblue")+
+  scale_y_continuous(expand = c(0,0))
+```
+
+### Dengan menggunakan Transformasi Z
+Teknik ini dilakukan dengan cara mengurangi setiap nilai data dengan rata-rata dan membaginya dengan standar deviasi data.
+
+$$
+z = \frac{x-\bar{x}}{\text{sd}(x)}
+$$
+
+dengan $\text{sd}(x)$ adalah standar deviasi dari variabel $x$. Hasil transformasi adalah variabel yang memiliki mean mendekati 0 dan standar deviasi mendekati 1
+
+
+```{r}
+dt_res5 = data_house %>% 
+  mutate(SalePrice_std=scale(SalePrice, center=TRUE,scale=TRUE))
+```
+Analisis : Proses normalisasi menggunakan fungsi scale() dengan parameter center=TRUE untuk menghilangkan rata-rata data dan scale=TRUE untuk membagi data dengan standar deviasi. Hasil normalisasi tersebut kemudian disimpan ke dalam variabel baru SalePrice_std.
+
+```{r}
+gghistogram(data = dt_res5,x = "SalePrice_std",fill = "steelblue")+
+  scale_y_continuous(expand = c(0,0))
+```
+
+
+
+### Dengan Min-Max Scaling
+Teknik ini dilakukan dengan cara mengurangi nilai minimum dari setiap data dan membaginya dengan selisih antara nilai maksimum dan minimum data.
+
+$$
+v = \frac{x-\max{x}}{\max{x}-\min{x}}
+$$
+
+dengan $\max{x}$ adalah nilai maksimum dari variabel $x$ dan $\min{x}$ adalah nilai minimum dari variabel $x$ . Hasil transformasi adalah variabel yang memiliki batas bawah 0 dan batas atas 1
+
+
+```{r}
+gghistogram(data = data_house,x = "SalePrice",fill = "steelblue")+
+  scale_y_continuous(expand = c(0,0))
+```
+
+
+
+```{r}
+minMax <- function(x) {
+  (x - min(x)) / (max(x) - min(x))
+}
+```
+Analisis : Code R tersebut merupakan definisi sebuah fungsi bernama minMax yang melakukan normalisasi data menggunakan teknik min-max scaling.
+
+Fungsi tersebut menerima sebuah vektor sebagai input, dan mengembalikan vektor baru yang merupakan hasil normalisasi data pada vektor input. Proses normalisasi data dilakukan dengan cara mengurangi nilai minimum dari vektor input dari setiap data dan membaginya dengan selisih antara nilai maksimum dan minimum dari vektor input.
+
+
+
+```{r}
+dt_res6 = data_house %>% 
+  mutate(SalePrice_mm=minMax(SalePrice))
+```
+
+
+```{r}
+gghistogram(data = dt_res6,x = "SalePrice_mm",
+            fill = "steelblue")+
+  scale_y_continuous(expand = c(0,0))
+```
+
+
+
+# Visualisasi data dengan Eksplorasi data analisis
+
+## Package
+```{r eval=FALSE}
+install.packages("tidyverse")
+install.packages("DataExplorer")
+install.packages("skimr")
+```
+
+
+Memanggil Package
+
+
+```{r message=FALSE}
+library(tidyverse)
+library(DataExplorer)
+library(skimr)
+```
+
+
+## Import Data
+
+
+```{r}
+data_house <- read.csv("C:/Users/rafif/Downloads/house_price1.csv",stringsAsFactors = TRUE)
+glimpse(data_house)
+```
+
+
+## Memeriksa Gambaran Umum Data
+
+```{r}
+plot_intro(data = data_house,
+           geom_label_args = list(size=2.5))
+```
+analisis : secara umum, fungsi plot_intro mungkin digunakan untuk membuat plot visualisasi data rumah, dan dengan menambahkan argumen geom_label_args, digunakan untuk mengatur tampilan teks label pada plot tersebut. Ukuran font 2.5 mungkin dipilih untuk membuat teks label terlihat cukup jelas namun tidak terlalu besar sehingga tidak mengganggu visualisasi data di plot.
+
+Catatan:
+
+* `plot_intro` merupakan fungsi yang berasal dari package `DataExplorer` dan argumen utamanya adalah object berbentuk `data.frame`. 
+* argumen `geom_label_args` bisa diisi dengan opsi-opsi yang ada pada fungsi `geom_label` pada pacakge `ggplot2`.
+
+
+
+```{r}
+skim_without_charts(data = data_house)
+```
+Catatan:
+
+* `skim_without_charts` merupakan fungsi yang berasal dari package `skimr` dan argumen utamanya adalah object berbentuk `data.frame`. 
+
+Berdasarkan informasi diatas, kita tahu terdata beberapa kolom yang memiliki missing value. Namun hanya 5 kolom saja yang mengalami banyak missing value yaitu `Alley`,`FireplaceQu`,`PoolQX`,`Fence`,`MiscFeature`.
+
+
+
+## Menangani Missing Value
+
+
+Dalam kasus ini kita akan menangani missing value dengan dua cara, yaitu
+
+1. Mereplace missing value pada kolom-kolom yang memiliki banyak sekali missing value (diatas 500)
+2. Menghapus baris-baris yang mengandung missing value pada kolom-kolom yang memiliki sedikti missing value (dibawah 500)
+
+
+Berikut dibawah ini adalah sintaks untuk melakukan replace missing value, khususnya jika datanya berupa `factor` atau `string`. Kemudian `na.omit` digunakan untuk menghapus semua baris yang mengandung missing value
+
+
+```{r}
+data_house1 <- data_house %>%
+  select(-Id) %>% 
+  mutate(
+    Alley = forcats::fct_explicit_na(Alley, na_level = "Ukn"),
+    FireplaceQu=forcats::fct_explicit_na(FireplaceQu,
+                                      na_level = "Ukn"   
+                                         ),
+    PoolQC = forcats::fct_explicit_na(PoolQC, na_level = "Ukn"),
+    Fence = forcats::fct_explicit_na(Fence, na_level = "Ukn"),
+    MiscFeature = forcats::fct_explicit_na(MiscFeature, na_level = "Ukn")
+  ) %>% na.omit
+```
+
+
+Kemudian kita akan lihat kembali data yang sudah kita tangani missing valuenya
+
+```{r}
+plot_intro(data = data_house1)
+skim_without_charts(data_house1)
+```
+
+
+Setelah dilihat kembali ternyata ada kolom yang hanya memiliki satu kategori saja yaitu kolom `Utilities`. Sehingga kita perlu menghapusnya.
+
+
+```{r}
+data_house1 <- data_house1 %>% 
+  select(-Utilities)
+```
+
+
+## Memeriksa Sebaran Data
+
+
+```{r}
+plot_histogram(data = data_house1,nrow=3,ncol = 3,
+               geom_histogram_args = list(fill="steelblue"),
+               ggtheme = theme_bw()
+               )
+```
+analisis : Code R di atas adalah pemanggilan fungsi plot_histogram dengan lima argumen: data, nrow, ncol, geom_histogram_args, dan ggtheme.
+
+Argumen data adalah data yang akan digunakan untuk menghasilkan histogram. Argumen nrow dan ncol menentukan jumlah baris dan kolom yang akan digunakan untuk menampilkan beberapa histogram dalam satu tampilan. Dalam kasus ini, tampilan akan terdiri dari 9 histogram (3 baris dan 3 kolom).
+
+Argumen geom_histogram_args digunakan untuk mengatur tampilan visual dari histogram. Dalam kasus ini, argumen tersebut mengatur pengisian warna dengan warna biru baja (steelblue) untuk area batang histogram.
+
+Argumen ggtheme digunakan untuk menentukan tema plot. Dalam hal ini, tema yang dipilih adalah theme_bw, yang merupakan tema dasar dengan latar belakang putih dan garis tepi hitam.
+
+
+```{r}
+plot_bar(data = data_house1,ggtheme =theme_bw(),nrow = 1)
+```
+
+
+## Memeriksa Korelasi Peubah
+
+
+```{r}
+plot_scatterplot(data = data_house1 %>%
+                   select_if(is.numeric),
+                 by="SalePrice",geom_point_args = list(color="steelblue"),ggtheme = theme_bw() )
+```
+
+
+
+```{r}
+cor_mat <- cor(data_house1%>%
+                   select_if(is.numeric),method = "spearman")
+cor_mat[upper.tri(cor_mat,diag = TRUE)] <- NA 
+cor_df <- cor_mat   %>%
+    as.data.frame() %>% 
+    rownames_to_column(var = "Var1") %>%
+  pivot_longer(names_to = "Var2",
+               values_to = "corr",
+               -Var1) %>% na.omit
+
+cor_df %>% filter(abs(corr)>0.6) %>% arrange(desc(abs(corr)))
+cor_df %>% filter(abs(corr)<=0.6)  
+```
+Analisis : Code R di atas terdiri dari beberapa baris yang menjalankan beberapa perintah untuk melakukan analisis korelasi pada data_house1.
+
+Pada baris pertama, kita mendefinisikan variabel cor_mat sebagai matriks korelasi spearman antara kolom numerik dalam data_house1 menggunakan fungsi cor dan select_if(is.numeric) yang digunakan untuk memilih hanya kolom numerik dalam dataset.
+
+Pada baris kedua, kita mengubah nilai-nilai pada segitiga atas matriks korelasi (yang merupakan duplikat dari segitiga bawah) dan nilai-nilai diagonal menjadi NA, sehingga hanya nilai-nilai pada segitiga bawah matriks korelasi yang diisi.
+
+Pada baris ketiga, kita mengubah matriks korelasi yang dihasilkan menjadi data frame, dan menambahkan kolom baru "Var1" yang berisi nama variabel pada baris.
+
+Pada baris keempat, kita menggunakan fungsi pivot_longer untuk mengubah format data dari lebar menjadi panjang, sehingga kolom "Var2" berisi nama variabel pada kolom. Hasilnya adalah data frame yang berisi tiga kolom: "Var1", "Var2", dan "corr" yang berisi nilai korelasi antara "Var1" dan "Var2".
+
+Pada baris kelima, kita menghapus baris yang mengandung nilai kosong atau NA pada kolom "corr" menggunakan fungsi na.omit.
+
+Pada baris keenam, kita memfilter baris-baris yang memiliki nilai korelasi absolut lebih besar dari 0,6, kemudian mengurutkannya secara menurun berdasarkan nilai korelasinya.
+
+Pada baris ketujuh, kita memfilter baris-baris yang memiliki nilai korelasi absolut kurang dari atau sama dengan 0,6.
+
+Keseluruhan code ini dapat digunakan untuk mengidentifikasi hubungan antarvariabel yang kuat dalam data_house1, terutama pada variabel-variabel dengan nilai korelasi absolut lebih besar dari 0,6.
+
+```{r}
+cat_var_names <- data_house1 %>% 
+  select(where(is.factor),SalePrice) %>%
+  names
+cat_var_names
+```
+analisis : Code R di atas digunakan untuk membuat vektor bernama cat_var_names yang berisi nama-nama variabel kategorikal dalam data_house1 yang juga memiliki kolom SalePrice.
+
+Pada baris pertama, data_house1 disaring dengan menggunakan fungsi select dengan argumen where(is.factor),SalePrice yang berarti hanya kolom-kolom dengan tipe data faktor (variabel kategorikal) dan kolom SalePrice yang dipilih.
+
+Pada baris kedua, names digunakan untuk mengekstrak hanya nama-nama variabel dari data frame yang dihasilkan pada baris pertama.
+
+Dengan menggunakan code R tersebut, kita dapat mengidentifikasi nama-nama variabel kategorikal yang memiliki informasi SalePrice dalam data_house1. Variabel-variabel tersebut dapat digunakan untuk analisis lebih lanjut seperti uji beda harga rumah antara kategori-kategori variabel kategorikal tersebut.
+
+```{r}
+for(i in cat_var_names[-43]){
+plot_boxplot(data = data_house1 %>% 
+               select(where(is.factor),SalePrice),
+             geom_boxplot_args=list(fill="steelblue"),
+             by=i,ggtheme = theme_bw())
+}
+```
+Analisis : Langkah pertama adalah memilih kolom-kolom numerik dalam dataset dan membuat scatterplot untuk memeriksa korelasinya dengan kolom SalePrice. Kemudian, karena kolom-kolom yang berupa faktor tidak dapat dihitung korelasinya dengan angka, maka digunakan metode Spearman untuk menghitung korelasi antara kolom faktor dan SalePrice. Selanjutnya, dibuat boxplot untuk memvisualisasikan pengaruh kolom faktor terhadap SalePrice, di mana korelasi negatif ditunjukkan dengan warna merah dan korelasi positif ditunjukkan dengan warna hitam. Korelasi negatif menunjukkan bahwa kolom tersebut memiliki hubungan yang berbanding terbalik dengan SalePrice, sedangkan korelasi positif menunjukkan hubungan yang berbanding lurus dengan SalePrice.
+
+
+
+
+# Regresi Linear Berganda
+
+
+## Package
+```{r eval=FALSE}
+install.packages("rsample")
+install.packages("DataExplorer")
+install.packages("sjPlot")
+install.packages("openxlsx")
+install.packages("lmtest")
+install.packages("fBasics")
+install.packages("mlr3measures")
+```
+
+## Memanggil Package
+```{r message=FALSE}
+library(rsample)
+library(DataExplorer)
+library(sjPlot)
+library(lmtest)
+library(openxlsx)
+library(mlr3measures)
+```
+## Import Data
+```{r}
+data_insurance <- read.csv("C:/Users/rafif/Downloads/insurance.csv",stringsAsFactors = TRUE)
+head(data_insurance)
+```
+## Data Exploration
+
+```{r}
+plot_histogram(data = data_insurance,nrow=3,ncol = 3,
+               geom_histogram_args = list(fill="steelblue"))
+```
+
+Transformasi response
+```{r}
+data_insurance$expenses <- log(data_insurance$expenses)
+
+plot_histogram(data = data_insurance,nrow=3,ncol = 3,
+               geom_histogram_args = list(fill="steelblue"))
+```
+Sebaran untuk peubah kategorik
+```{r}
+plot_bar(data = data_insurance,nrow=3,ncol = 3
+         )
+```
+## 2. Memeriksa Korelasi Peubah
+```{r}
+plot_scatterplot(data = data_insurance[,c("expenses","age","bmi","children")],
+                 by="expenses",geom_point_args= list(color="steelblue") )
+```
+## Model Regresi Linear
+```{r}
+regresi <- lm(formula = expenses~.,data = data_insurance)
+summary(regresi)
+```
+
+```{r}
+plot_model(regresi,type = "est",sort.est = TRUE,
+           transform = "exp" )
+```
+
+```{r}
+plot_model(model = regresi,type="pred")
+```
+## Model Checking
+```{r}
+plot_model(regresi,type = "diag")
+```
+
+```{r}
+res <- residuals(regresi)
+# uji normalitas
+shapiro.test(res)
+```
+Analisis : Untuk membuat sebuah model regresi dari data asuransi, akan dibutuhkan variabel respon dan variabel acak. Model tersebut dapat dihasilkan dengan menggunakan formula dan menghitung expenses dari data asuransi. Dengan menggunakan fungsi summary(), kita dapat mengetahui setiap nilai beta, intersep, serta kuartil residual dari model regresi yang dibuat. Setelah model regresi terbentuk, langkah selanjutnya adalah melakukan pengecekan terhadap model dengan menggunakan residual.
+```{r}
+fBasics::jarqueberaTest(res)
+```
+
+```{r}
+fBasics::ksnormTest(res,)
+```
+
+```{r}
+print(fBasics::adTest(res))
+```
+Analisis : Uji ini dilaksanakan untuk memeriksa apakah galat yang sebelumnya telah diketahui adalah data yang berdistribusi normal. Jika galat menyebar secara normal, maka model yang telah dibuat dianggap valid dan tepat. Dalam konteks ini, H0 menunjukkan bahwa data berdistribusi normal, sementara H1 menunjukkan bahwa data tidak berdistribusi normal. Kriteria penolakan didasarkan pada nilai p-value, di mana jika p-value kurang dari 0,05 maka H0 ditolak, dan jika p-value tinggi, maka H0 diterima. Dari hasil semua pengujian, dapat disimpulkan bahwa galat tidak berdistribusi normal karena p-value < 0,05.
+
+```{r}
+# uji homogen ragam
+lmtest::bptest(expenses ~.,
+               data = data_insurance,
+               studentize = F)
+```
+Analisis : Untuk menguji heterokedastisitas pada model, digunakan fungsi bptest(). H0 menunjukkan bahwa tidak ada heterokedastisitas pada model, sedangkan H1 menunjukkan adanya heterokedastisitas. Jika nilai p-value lebih besar dari 0,05, maka H0 diterima. Dalam kasus ini, karena nilai p-value < 0,05, dapat disimpulkan bahwa masih terdapat heterokedastisitas pada model yang dibuat.
+
+## Prediksi Regresi Linear
+Membagi data menjadi training testing
+```{r}
+set.seed(123)
+data_split <- initial_split(data = data_insurance,prop = 0.8)
+                            
+train1 <- training(data_split)
+test1 <- testing(data_split)
+
+regresi2 <- lm(expenses ~.,data = train1)
+```
+Prediksi data testing
+```{r}
+prediksi <- predict(regresi2,newdata = test1)
+head(prediksi)
+```
+Evaluasi data testing
+```{r}
+prediksi <- predict(regresi2,newdata = test1)
+prediksi <- predict(regresi2,newdata = test1)
+head(prediksi)
+```
+Analisis : Setelah itu, langkah selanjutnya adalah membuat subdata, yaitu training dan testing. Subdata training digunakan untuk melatih model, sementara subdata testing digunakan untuk menguji model yang telah dibuat. Prediksi terhadap data testing diperlukan untuk melanjutkan pengujian model. Untuk mengevaluasi subdata testing, dapat menggunakan fungsi head().
+
+Evaluasi hasil prediksi
+```{r}
+# RMSE
+mlr3measures::rmse(response = prediksi,truth = test1$expenses)
+```
+Analisis : Jika RMSE (Root Mean Squared Error) bernilai 0,4, maka hal ini menunjukkan bahwa rata-rata kesalahan prediksi model adalah sekitar 0,4 satuan dari skala variabel target yang diukur. Dalam konteks ini, semakin rendah nilai RMSE, semakin kecil rata-rata kesalahan prediksi model, yang artinya semakin akurat model dalam memprediksi nilai variabel target. Sebaliknya, semakin tinggi nilai RMSE, semakin besar rata-rata kesalahan prediksi model, yang artinya semakin tidak akurat model dalam memprediksi nilai variabel target. Namun, untuk mengevaluasi apakah nilai RMSE yang diperoleh sudah baik atau belum, perlu membandingkan nilai RMSE tersebut dengan skala variabel target yang diukur dan mempertimbangkan konteks permasalahan yang sedang dihadapi.
+```{r}
+# MAPE
+mlr3measures::mape(response = prediksi,truth = test1$expenses)
+```
+Analisis : Jika MAPE (Mean Absolute Percentage Error) bernilai 0,03, maka hal ini menunjukkan bahwa rata-rata persentase kesalahan prediksi model adalah sekitar 0,03 atau 3% dari nilai rata-rata variabel target yang diukur. Dalam konteks ini, semakin rendah nilai MAPE, semakin kecil rata-rata persentase kesalahan prediksi model, yang artinya semakin akurat model dalam memprediksi nilai variabel target. Sebaliknya, semakin tinggi nilai MAPE, semakin besar rata-rata persentase kesalahan prediksi model, yang artinya semakin tidak akurat model dalam memprediksi nilai variabel target. Namun, untuk mengevaluasi apakah nilai MAPE yang diperoleh sudah baik atau belum, perlu mempertimbangkan konteks permasalahan yang sedang dihadapi dan apakah besarnya kesalahan prediksi tersebut masih dapat diterima atau tidak.
+```{r}
+# Spearman Correlation
+mlr3measures::srho(response = prediksi,truth = test1$expenses)
+```
+Analisis : Berdasarkan hasil Spearman Correlation diatas terlihat sangat tinggi yakni dikisaran 90%.  hal ini menunjukkan bahwa terdapat hubungan monotonik positif yang sangat kuat antara kedua variabel tersebut. Artinya, ketika nilai salah satu variabel meningkat, kemungkinan besar nilai variabel lainnya juga akan meningkat secara berurutan. 

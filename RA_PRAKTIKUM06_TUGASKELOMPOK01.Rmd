@@ -1,0 +1,491 @@
+---
+title: "Tugas Praktikum SSD Kelompok Modul 6"
+output: html_document
+date: "2023-04-16"
+---
+
+## Kelompok 1 RA
+1. Taufiqurrahmansyah Effendi _120450051 \
+2. Hanna Sajidah_121450060 \
+3. Patricia Gaby Rahmawati Tamba_121450099 \
+4. Rafi Fadhlillah_121450143_(KELAS RC) \
+5. Andini Nur Izzati_121450147 \
+6. Leonard Andreas Napitupulu_121450153
+
+# About Dataset
+Link dataset : https://archive.ics.uci.edu/ml/datasets/Student%20Performance
+
+### Import Library
+```{r}
+library(leaps) # forward and backward selection
+library(glmnet) # ridge and lasso
+library(kableExtra)
+library(ggplot2)
+library(ISLR)
+library(DataExplorer)
+library(skimr)
+library(gridExtra)
+library(ggplot2)
+library(knitr)
+library(pls)
+library(MASS)
+library(splines)
+library(boot)
+```
+
+### Import Dataset
+```{r}
+student <- read.csv("C:/Users/rafif/Downloads/student-mat.csv", stringsAsFactors = TRUE)
+skim(student)
+```
+
+## i) Pengantar dataset (respons, variabel prediktor, jumlah observasi, dan jumlah prediktor)
+```{r}
+# Mengecek variabel respons
+print(names(student)[33])
+```
+
+```{r}
+# Mengecek variabel prediktor
+print(names(student)[-32])
+```
+
+```{r}
+# Menampilkan jumlah observasi dan variabel
+dim(student)
+```
+
+```{r}
+# Menampilkan daftar variabel
+names(student)
+```
+
+```{r}
+# Mengecek jumlah observasi
+print(nrow(student))
+# Mengecek jumlah observasi prediktor
+print(ncol(student)-1)
+```
+
+
+## ii) Pertanyaan yang ingin Anda jawab (Uraikan apa saja yang ingin anda tinjau)
+#### 1. Bagaimana perbandingan metode regresi polinomial dan regresi splines?
+#### 2. Berdasarkan hasil ANOVA pada regresi polinomial dataset diatas, manakah derajat paling optimal?
+#### 3. Bagaimana perbandingan hasil error kedua metode tersebut dan manakah metode yang lebih baik digunakan untuk dataset ini?
+
+## iii) Pembersihan data (Jika terdapat missing value)
+```{r}
+#menghitung jumlah data kosong
+sum(is.na(student))
+```
+
+```{r}
+# Periksa apakah ada nilai duplikat di dalam dataset
+sum(duplicated(student))
+```
+
+```{r}
+plot_intro(data = student,
+           geom_label_args = list(size=2.5))
+```
+
+**Analisis : Plot diatas menunjukkan bahwa All Missing Columns dan Missing Observation sebesar 0% serta Complate Rows mencapai 100% artinya tidak ada nilai missing dalam dataset ini, maka dapat langsung ke proses selanjutnya.**
+
+## iv) Analisis deskriptif awal (ringkasan numerik dan gambar plot - jika diperlukan)
+### Ringkasan Numerik
+```{r}
+# Membuat ringkasan numerik
+summary(student)
+```
+
+## Plot Variabel Respons
+### Plot Jumlah Murid Masing Masing Sekolah
+```{r}
+a <-ggplot(student,aes(x= school, fill = school)) +
+  geom_bar() + scale_fill_manual(values=c("maroon", "steelblue"))
+a+ labs(x="school")
+```
+
+**Analisis : Plot bar diatas menunjukkan jumlah siswa pada masing-masing sekolah. Variabel school diplot pada sumbu x, sedangkan warna pada bar plot diisi dengan warna maroon untuk sekolah "GP" dan warna steelblue untuk sekolah "MS". Dapat dilihat bahwa jumlah siswa pada sekolah "GP" lebih banyak dibandingkan dengan jumlah siswa pada sekolah "MS".**
+
+## Plot Variabel Prediktor
+### Plot Alasan memilih sekolah berdasarkan umur
+```{r}
+ggplot(student, aes(x= age)) +
+  geom_histogram(aes(fill = factor(age)), color = "black", alpha = 0.7, bins = 8, width = 0.8) +
+  facet_wrap(~ reason) +
+  scale_fill_brewer(palette = "Set1") +
+  theme(strip.text = element_text(size =15, face = "bold"))
+```
+
+**Analisis : Plot diatas menunjukkan distribusi umur siswa yang memilih sekolah berdasarkan alasan yang berbeda. Plot dibagi menjadi beberapa panel berdasarkan variabel "reason". Setiap panel menunjukkan distribusi umur siswa yang memilih sekolah berdasarkan alasan tertentu. Warna pada histogram plot menunjukkan distribusi umur yang berbeda. Dapat dilihat bahwa alasan memilih sekolah berdasarkan "course" dan "reputation" lebih banyak dipilih oleh siswa dengan umur 15-18 tahun, sedangkan alasan "home" dan "other" lebih banyak dipilih oleh siswa dengan umur 16-19 tahun.**
+
+```{r}
+ggplot(student, aes(x=age, fill = reason)) + geom_density(alpha=0.3)
+```
+
+**Analisis : Plot diatas adalah sebuah density plot yang menunjukkan distribusi umur siswa yang memilih sekolah berdasarkan alasan yang berbeda. Dapat dilihat bahwa alasan memilih sekolah berdasarkan "course" dan "reputation" memiliki distribusi umur yang lebih condong pada 15-18 tahun, sedangkan alasan "home" dan "other" memiliki distribusi umur yang lebih condong pada 16-19 tahun. Density plot ini dapat memberikan gambaran yang lebih jelas mengenai distribusi umur siswa yang memilih sekolah berdasarkan alasan tertentu, dibandingkan dengan histogram plot yang hanya menunjukkan frekuensi siswa pada setiap rentang umur.**
+
+### Plot Perbandingan Siswa Laki-laki dan Perempuan
+```{r}
+dbar <- ggplot(student, aes(x=age, fill = sex)) + geom_bar(position = "fill", width = 0.9) +
+  ylab("proportion")
+```
+
+```{r}
+dpie <- ggplot(student, aes(x="", fill=sex)) +
+  geom_bar(stat="count", position="fill") +
+  coord_polar(theta="y") +
+  ylab("Proportion")
+```
+
+```{r}
+grid.arrange(dbar, dpie, ncol = 2)
+```
+
+**Analisis : Setiap stacked bar merepresentasikan proporsi dari jumlah siswa laki-laki dan perempuan pada setiap kelompok umur, sehingga dapat dilihat perbandingan antara jumlah siswa laki-laki dan perempuan pada setiap kelompok umur. Dalam hal ini, dapat dilihat bahwa proporsi siswa perempuan cenderung lebih banyak pada kelompok umur 15-18 tahun, sedangkan proporsi siswa laki-laki cenderung lebih banyak pada kelompok umur 19-22 tahun. Sedangkan jika dilihat dari pie chart diperoleh perbandingan antara jumlah siswa laki-laki dan perempuan secara visual. Dalam hal ini, proporsi siswa perempuan lebih banyak dibandingkan dengan siswa laki-laki.**
+
+```{r}
+ggplot(student, aes(x=age, fill = sex)) + geom_density(alpha=0.3)
+```
+
+**Analisis : Plot diatas adalah sebuah density plot yang menunjukkan distribusi umur siswa laki-laki dan perempuan. Distribusi umur siswa laki-laki ditunjukkan dengan warna biru, sedangkan distribusi umur siswa perempuan ditunjukkan dengan warna merah. Density plot ini dapat digunakan untuk melihat perbandingan distribusi umur antara siswa laki-laki dan perempuan, serta untuk menentukan apakah terdapat perbedaan signifikan dalam distribusi umur antara kedua kelompok gender.**
+
+### Plot Waktu Perjalanan Menuju Sekolah Vs Alasan Memilih Sekolah
+```{r}
+ggplot(student, aes(x=traveltime, fill = reason)) + geom_bar(position = "fill") +
+  ylab("proportion")
+```
+
+**Analisis : Plot diatas adalah sebuah stacked bar plot yang menunjukkan proporsi dari alasan memilih sekolah pada setiap kategori waktu tempuh ke sekolah pada dataset student. Setiap kategori alasan memilih sekolah ditunjukkan dengan warna yang berbeda pada stacked bar plot, sehingga dapat dilihat perbandingan antara proporsi alasan memilih sekolah pada setiap kategori waktu tempuh ke sekolah secara visual. Dalam hal ini, dapat dilihat bahwa proporsi siswa yang memilih sekolah karena faktor "course" lebih tinggi pada kategori waktu tempuh ke sekolah yang lebih lama, sedangkan proporsi siswa yang memilih sekolah karena faktor "other" lebih tinggi pada kategori waktu tempuh ke sekolah yang lebih pendek.**
+
+```{r}
+ggplot(student, aes(x=traveltime, fill = reason)) + geom_density(alpha=0.3)
+```
+
+**Analisis : Plot diatas adalah sebuah density plot yang menunjukkan distribusi waktu tempuh ke sekolah pada setiap alasan memilih sekolah pada dataset student. Setiap alasan memilih sekolah ditunjukkan dengan warna yang berbeda pada density plot, sehingga dapat dilihat perbandingan antara distribusi waktu tempuh ke sekolah pada setiap alasan memilih sekolah secara visual. Dalam hal ini, dapat dilihat bahwa distribusi waktu tempuh ke sekolah pada alasan memilih sekolah karena faktor "home" cenderung lebih pendek dibandingkan dengan alasan memilih sekolah karena faktor "course" atau "other". Sedangkan distribusi waktu tempuh ke sekolah pada alasan memilih sekolah karena faktor "reputation" dan "teacher" memiliki kurva yang lebih landai dan cenderung berada di antara distribusi dari alasan memilih sekolah lainnya.**
+
+### Plot Final Grade Vs Siswa yang Memiliki Fasilitas Internet
+```{r}
+plot_1 = ggplot(student, aes(G3,fill = factor(internet)))
+plot_2 = plot_1 + geom_histogram(stat="count")
+print(plot_2)
+```
+
+**Analisis : Plot diatas adalah sebuah histogram yang menunjukkan distribusi nilai G3 (nilai ujian terakhir) pada setiap siswa yang memiliki akses internet dan yang tidak memiliki akses internet. Setiap kelompok ditunjukkan dengan warna yang berbeda pada histogram, sehingga dapat dilihat perbandingan antara distribusi nilai G3 pada kedua kelompok secara visual. Dalam hal ini, dapat dilihat bahwa distribusi nilai G3 pada siswa yang memiliki akses internet cenderung lebih tinggi dibandingkan dengan siswa yang tidak memiliki akses internet.**
+
+### Plot Final Grade Vs Waktu Luang di Luar Jam Sekolah
+```{r}
+plot_1 = ggplot(student, aes(G3,fill = factor(freetime)))
+plot_2 = plot_1 + geom_histogram(stat="count")
+print(plot_2)
+```
+
+**`Note : from 1 - very low(minim waktu luang) to 5 - very high(banyak waktu luang)`**
+
+**Analisis :  Plot diatas adalah sebuah histogram yang menunjukkan distribusi nilai G3 (nilai ujian akhir) pada setiap siswa yang memiliki waktu luang yang berbeda-beda. Setiap kelompok waktu luang ditunjukkan dengan warna yang berbeda pada histogram, sehingga dapat dilihat perbandingan antara distribusi nilai G3 pada setiap kelompok waktu luang secara visual. Dalam hal ini, dapat dilihat bahwa distribusi nilai G3 pada siswa yang memiliki waktu luang antara sedikit hingga sedang cenderung lebih tinggi dibandingkan dengan siswa yang memiliki waktu luang yang sangat sedikit atau sangat banyak.**
+
+### Plot Perbandingan Antara Siswa yang Mendapatkan Extra Paid Class Vs Final Grade
+```{r}
+plot_1 = ggplot(student, aes(G3,fill = factor(paid)))
+plot_2 = plot_1 + geom_histogram(stat="count")
+print(plot_2)
+```
+
+**Analisis : Plot diatas menampilkan histogram dari distribusi nilai akhir "G3" untuk setiap tingkat variabel "paid". Sumbu-x mewakili rentang nilai untuk variabel "G3", dan sumbu-y mewakili hitungan jumlah siswa dalam setiap interval. Siswa yang memiliki kursus tambahan (paid=yes) cenderung memperoleh nilai yang lebih tinggi dibandingkan dengan siswa yang tidak memiliki kursus tambahan (paid=no). Terlihat dari jumlah siswa dengan nilai akhir di atas 15 yang mayoritas adalah siswa yang memiliki kursus tambahan.Jumlah siswa yang memiliki kursus tambahan lebih sedikit dibandingkan dengan siswa yang tidak memiliki kursus tambahan.**
+
+### Perbandingan Final Grade di 2 Sekolah
+```{r}
+plot_1 = ggplot(student, aes(G3,fill = factor(school)))
+plot_2 = plot_1 + geom_histogram(stat="count")
+print(plot_2)
+```
+
+**Analisis : Plot di atas menghasilkan histogram yang menunjukkan distribusi jumlah siswa di setiap nilai akhir (G3) untuk masing-masing sekolah (school).Sekolah GP memiliki jumlah siswa yang lebih banyak daripada sekolah MS di setiap nilai akhir.Distribusi nilai akhir di sekolah GP lebih condong ke nilai yang lebih tinggi daripada di sekolah MS.Banyak siswa di kedua sekolah yang memperoleh nilai akhir 10 (nilai maksimal yang dapat dicapai). Terdapat perbedaan jumlah siswa yang signifikan di setiap nilai akhir di kedua sekolah.**
+
+### Plot Perbandingan Waktu Belajar Antara Laki-laki dan Perempuan
+```{r}
+ggplot(student, aes(x=studytime, fill = sex)) + geom_bar(position = "fill") +
+  ylab("proportion")
+```
+
+**`[1] - <2 hours, [2] - 2 to 5 hours, [3] - 5 to 10 hours, or [4] - >10 hours`**
+
+**Analisis : Plot di atas menghasilkan stacked bar plot yang menunjukkan proporsi siswa perempuan dan laki-laki untuk setiap level waktu belajar (studytime). Proporsi siswa perempuan yang belajar kurang dari 2 jam per minggu lebih tinggi daripada laki-laki, sementara proporsi laki-laki yang belajar lebih dari 4 jam per minggu lebih tinggi daripada perempuan. Secara keseluruhan, proporsi siswa perempuan yang belajar lebih lama (3-4 jam dan lebih dari 4 jam per minggu) lebih tinggi daripada laki-laki. Proporsi siswa laki-laki dan perempuan yang tidak belajar (0 jam per minggu) hampir sama.**
+
+```{r}
+ggplot(student, aes(x=studytime, fill = sex)) + geom_density(alpha=0.3)
+```
+
+**Analisis : di atas menghasilkan density plot yang menunjukkan distribusi waktu belajar (studytime) untuk siswa perempuan dan laki-laki dalam dataset. Terdapat lebih banyak siswa perempuan daripada laki-laki dalam dataset. Distribusi waktu belajar siswa perempuan lebih condong ke nilai yang lebih tinggi daripada laki-laki, dengan puncak distribusi pada 2-3 jam per minggu. Distribusi waktu belajar siswa laki-laki lebih landai dan lebih merata, dengan puncak distribusi pada 1-2 jam per minggu. Terlihat perbedaan yang signifikan dalam distribusi waktu belajar antara siswa perempuan dan laki-laki.**
+
+### Perbandingan Final Grade Laki-laki Vs Perempuan
+```{r}
+ggplot(student, aes(x=G3, fill = sex)) + geom_bar(position = "fill") +
+  ylab("proportion")
+```
+
+**Analisis : Plot di atas menghasilkan stacked bar plot yang menunjukkan proporsi siswa perempuan dan laki-laki untuk setiap nilai akhir (G3). Proporsi siswa perempuan yang memperoleh nilai akhir lebih tinggi daripada laki-laki. Proporsi siswa perempuan yang memperoleh nilai akhir antara 15-20 (nilai tertinggi) lebih tinggi daripada laki-laki. Proporsi siswa laki-laki yang memperoleh nilai akhir antara 0-10 lebih tinggi daripada perempuan. Terlihat perbedaan yang signifikan dalam distribusi nilai akhir antara siswa perempuan dan laki-laki.**
+
+
+```{r}
+ggplot(student, aes(x=G3, fill = sex)) + geom_density(alpha=0.3)
+```
+
+**Analisis : Plot di atas menghasilkan density plot yang menunjukkan distribusi nilai akhir (G3) untuk siswa perempuan dan laki-laki dalam dataset. Distribusi nilai akhir siswa perempuan lebih condong ke nilai yang lebih tinggi daripada laki-laki, dengan puncak distribusi pada 15-18 (nilai yang tinggi). Distribusi nilai akhir siswa laki-laki lebih landai dan lebih merata, dengan puncak distribusi pada 10-14 (nilai yang sedang). Terlihat perbedaan yang signifikan dalam distribusi nilai akhir antara siswa perempuan dan laki-laki.**
+
+### Perbandingan First Period Grade Vs Second Period Grade Vs Final Grade
+```{r}
+plot11 <- ggplot(student) +
+  geom_histogram(mapping=(aes(G1
+  )),fill="darkgreen",col="white",binwidth = 1) +
+  labs(x="First Period Grade
+", y="Ratio", title="First Period Grade") + theme(legend.position="none")
+```
+
+```{r}
+plot22 <- ggplot(student) +
+  geom_histogram(mapping=(aes(G2
+  )),fill="purple",col="white",binwidth = 1) +
+  labs(x="Second Period Grade
+", y="Ratio", title="Second Period Grade") + theme(legend.position="none")
+```
+
+```{r}
+plot33 <- ggplot(student) +
+  geom_histogram(mapping=(aes(G3
+  )),fill="gold3",col="white",binwidth = 1) +
+  labs(x="Final Grade
+", y="Ratio", title="Final Grade") + theme(legend.position="none")
+```
+
+```{r}
+grid.arrange(plot11, plot22, plot33, ncol=3)
+```
+
+**Analisis : Plot di atas menghasilkan tiga histogram yang membandingkan distribusi nilai pada tiga periode penilaian (G1, G2, dan G3) dalam dataset siswa. Distribusi nilai pada periode pertama (G1) memiliki rentang nilai yang paling sempit dan berpusat di sekitar nilai 10-14. Distribusi nilai pada periode kedua (G2) memiliki rentang nilai yang lebih lebar daripada periode pertama dan memiliki puncak yang sedikit lebih rendah dari periode pertama, dengan rentang nilai yang berpusat di sekitar 10-14. Distribusi nilai pada periode akhir (G3) memiliki rentang nilai yang lebih lebar daripada periode kedua dan memiliki puncak yang lebih rendah dari kedua periode sebelumnya, dengan rentang nilai yang berpusat di sekitar 10-16. Terdapat peningkatan nilai rata-rata antara periode pertama, kedua, dan akhir. Terlihat terdapat banyak siswa yang meningkatkan nilai mereka dari periode pertama ke periode kedua, tetapi kemudian nilai mereka stabil atau bahkan menurun di periode akhir.**
+
+## v) Metode klasifikasi yang digunakan
+### Regresi Polinomial
+
+```{r}
+fit=lm(G2~poly(G3,4), data=student)
+coef(summary(fit))
+```
+
+```{r}
+fit2=lm(G2~poly(G3,4,raw=T), data=student)
+coef(summary(fit2))
+```
+
+```{r}
+fit2a=lm(G2~G3+I(G3^2)+I(G3^3)+I(G3^4),data=student)
+coef(fit2a)
+```
+
+```{r}
+fit2b = lm(G2~cbind(G3, G3^2, G3^3, G3^4), data = student)
+coef(fit2b)
+```
+
+```{r}
+G3lims = range(student$G2)
+G3.grid=seq(from = G3lims[1], to= G3lims[2])
+preds= predict(fit, newdata=list(G3=G3.grid), se=TRUE)
+se.bands = cbind(preds$fit+2*preds$se.fit, preds$fit-2*preds$se.fit)
+```
+
+```{r}
+par(mfrow=c(1,2), mar=c(4.5,4.5,1,1), oma=c(0,0,4,0))
+plot(student$G3,student$G2, xlim=G3lims, cex=.5, col="darkgrey", main="Degre-4 Polynomial")
+lines(G3.grid, preds$fit, lwd=2, col="blue")
+matlines(G3.grid, se.bands, lwd=1, col="blue", lty=3)
+```
+
+**Analisis : Plot yang dihasilkan dari regresi polinomial ini menunjukkan hubungan antara variabel G3 (nilai ujian semester 1) dan G2 (nilai ujian semester 2) pada sekelompok siswa. Garis biru yang ditampilkan pada plot tersebut adalah hasil regresi polinomial orde 4 dari G3 terhadap G2.sebaran data pada plot tersebut cenderung menyebar ke arah atas, yang menunjukkan adanya variasi yang signifikan dalam nilai G2 pada setiap nilai G3.**
+
+```{r}
+set.seed(12345)
+rss <- rep(NA, 10)
+for (i in 1:10) {
+lm.fit <- lm(G2 ~ poly(G3, i), data = student)
+rss[i] <- sum(lm.fit$residuals^2)
+}
+
+plot(1:10, rss, xlab = "Polynomial Degree", ylab = "RSS", type = "l")
+d.min <- which.min(rss)
+points(d.min, rss[d.min], col = "red", cex = 2, pch = 20)
+```
+
+**Analisis : Dalam plot tersebut, kita dapat melihat bahwa nilai RSS menurun seiring dengan meningkatnya derajat polinomial. Namun, ada titik di mana penurunan nilai RSS tidak terlalu signifikan. Pada plot tersebut, titik tersebut terletak di sekitar derajat polinomial 3 atau 4. Oleh karena itu, kita dapat menyimpulkan bahwa menggunakan model regresi polinomial dengan derajat polinomial 3 atau 4 sudah cukup baik untuk memprediksi data. Jika kita menggunakan derajat polinomial yang lebih tinggi, kita mungkin akan mengalami overfitting dan model akan menjadi terlalu kompleks.**
+
+```{r}
+preds2=predict(fit2,newdata=list(G3=G3.grid),se=TRUE)
+max(abs(preds$fit-preds2$fit))
+```
+
+```{r}
+fit.1=lm(G2~G3,data=student)
+fit.2=lm(G2~poly(G3,2),data=student)
+fit.3=lm(G2~poly(G3,3),data=student)
+fit.4=lm(G2~poly(G3,4),data=student)
+fit.5=lm(G2~poly(G3,5),data=student)
+fit.6=lm(G2~poly(G3,6),data=student)
+fit.7=lm(G2~poly(G3,7),data=student)
+```
+
+### ANOVA
+```{r}
+anova(fit.1,fit.2, fit.3, fit.4, fit.5, fit.6, fit.7)
+```
+
+**Analisis : Berdasarkan output anova di atas, kita dapat melihat bahwa model regresi polinomial orde kedua (Model 2) memberikan perbedaan yang signifikan dengan Model 1 (p < 0,001), dan model polinomial orde ketiga (Model 3) juga memberikan perbedaan signifikan dengan Model 2 (p < 0,001). Namun, model-model polinomial orde yang lebih tinggi (Model 4 hingga Model 7) tidak memberikan perbedaan yang signifikan dengan model sebelumnya. Dengan demikian, kita dapat mengambil kesimpulan bahwa Model 3, yaitu regresi polinomial orde tiga, adalah model yang paling sesuai untuk menjelaskan hubungan antara G2 dan G3, karena model ini memberikan perbedaan signifikan dengan model sebelumnya dan juga memiliki jumlah parameter yang cukup untuk menjelaskan variasi dalam data tanpa overfitting.**
+
+```{r}
+coef(summary(fit.7))
+```
+
+```{r}
+set.seed(12345)
+deltas = rep(NA, 10)
+for (i in 1:6){
+  glm.fit = glm(G2~poly(G3, i), data=student)
+  deltas[i] = cv.glm(student, glm.fit, K=10)$delta[1]
+}
+deltas
+```
+
+```{r}
+plot(1:10, deltas, xlab="Degree", ylab="CV Error", type = "l")
+d.min <- which.min(deltas)
+points(which.min(deltas), deltas[which.min(deltas)], col="red", cex=2, pch=20)
+```
+```{r}
+d.min
+```
+
+**Analisis : Pada plot tersebut, terlihat bahwa nilai CV error cenderung menurun dengan peningkatan derajat polynomial hingga mencapai puncak pada derajat polynomial ke-3, lalu meningkat lagi pada derajat polynomial ke-4, dan akhirnya menurun kembali pada derajat polynomial ke-5 dan ke-6. Hal ini menunjukkan bahwa terdapat trade-off antara model complexity (tingkat derajat polynomial) dan kemampuan model untuk generalisasi (CV error). Dari plot tersebut, kita dapat melihat bahwa model dengan derajat polynomial terbaik adalah derajat polynomial ke-6, di mana nilai CV error paling rendah tercapai.**
+
+```{r}
+lm.fit = glm(G2 ~ poly(G3, 7), data = student)
+cv.err = cv.glm(student, glm.fit, K = 10)$delta[1]
+cat("CV error:", cv.err)
+```
+
+**Analisis : Hasil CV error yang diperoleh adalah 1.944063. CV error dapat digunakan sebagai ukuran kinerja model, semakin rendah nilai CV error, maka semakin baik kinerja model tersebut. Oleh karena itu, semakin kecil nilai CV error pada model regresi polinomial derajat 7 ini, maka semakin baik model tersebut dalam memprediksi nilai G2 berdasarkan variabel G3.** 
+
+
+### Regeresi Splines
+```{r}
+plot(G2 ~ G3, data = student, col = "gray")
+G3lims <- range(student$G3)
+G3.grid <- seq(from = G3lims[1], to = G3lims[2])
+poly2 <- lm(G2 ~ poly(G3, 2), data = student)
+preds <- predict(poly2, newdata = list(G3 = G3.grid))
+lines(G3.grid, preds, col = "blue", lwd = 2, lty = 1)
+poly4 <- lm(G2 ~ poly(G3, 3), data = student)
+preds4 <- predict(poly4, newdata = list(G3 = G3.grid))
+lines(G3.grid, preds4, col = "red", lwd = 2, lty=2)
+legend("topright", legend=c("poly2", "poly3"),
+col=c("blue", "red"), lty=1:2, cex=0.8)
+title("fig:1-Degree-3 and 2- Polynomial FIT",outer=FALSE)
+```
+
+**Analisis : Terlihat bahwa garis merah lebih dekat pada data observasi daripada garis biru, yang menunjukkan bahwa model regresi polinomial dengan derajat 3 memberikan hasil yang lebih baik dalam memprediksi nilai G2 berdasarkan nilai G3. Oleh karena itu, untuk model regresi pada data tersebut, regresi polinomial dengan derajat 3 mungkin menjadi pilihan yang lebih baik.**
+
+
+```{r}
+bs.fit <- lm(G2 ~ bs(G3, df = 4, knots = c(4, 7, 11)), data = student)
+bs.fit1 <- lm(G2 ~ bs(G3, df = 4), data = student)
+summary(bs.fit)
+```
+
+```{r}
+coef(summary(bs.fit))
+```
+
+```{r}
+pred <- predict(bs.fit, list(G3 = seq(min(student$G3), max(student$G3), length = 100)), se.fit = TRUE)
+plot(student$G3, student$G2, col = "lightgray")
+lines(seq(min(student$G3), max(student$G3), length = 100), pred$fit, col = "blue", lwd = 2)
+lines(seq(min(student$G3), max(student$G3), length = 100), pred$fit + 2*pred$se.fit, lty = "dashed", col = "red")
+lines(seq(min(student$G3), max(student$G3), length = 100), pred$fit - 2*pred$se.fit, lty = "dashed", col = "red")
+title("Spline with four degrees of freedom and uniform knots")
+```
+
+**Analisis : Grafik pada plot diatas menunjukkan batas atas (garis merah putus-putus) dan batas bawah (garis merah putus-putus) dari interval kepercayaan sebesar 2 kali standar error dari hasil regresi spline. Dari grafik ini dapat disimpulkan bahwa terdapat hubungan yang jelas dan signifikan antara variabel prediktor G3 dan variabel respons G2. Namun, hubungan tersebut tidak linear, sehingga model spline dengan knot seragam dan empat derajat kebebasan lebih sesuai daripada model linear.**
+```{r}
+dim(bs(student$G3, df=4))
+```
+
+```{r}
+attr(bs(student$G3, df=4), "knots")
+```
+
+```{r}
+fit2=lm(G2~ns(G3,df=4),data=student)
+pred2=predict(fit2,newdata=list(G3=G3.grid),se=T)
+plot(student$G3, student$G2, xlim = G3lims, cex = 0.5, col = "darkgrey")
+lines(G3.grid, pred2$fit, col = "red", lwd = 2)
+title("Smoothing Spline")
+```
+
+**Analisis : Dari grafik ini dapat disimpulkan bahwa terdapat hubungan yang jelas dan signifikan antara variabel prediktor G3 dan variabel respons G2. Namun, hubungan tersebut tidak linear, sehingga model smoothing spline lebih sesuai daripada model linear. Model smoothing spline ini menggunakan fungsi basis splines untuk menentukan bentuk kurva yang optimal.**
+
+```{r}
+set.seed(12345)
+rss = rep(NA, 10)
+for (i in 3:10) {
+lm.fit <- lm(G2 ~ bs(G3, df = i), data = student)
+rss[i] <- sum(lm.fit$residuals^2)
+}
+rss[-c(1, 2)]
+```
+
+```{r}
+plot(3:10, rss[-c(1, 2)], xlab = "Degrees of freedom", ylab = "RSS", type = "l")
+d.min <- which.min(rss)
+points(d.min, rss[d.min], col = "red", cex = 2, pch = 20)
+```
+
+**Analisis : Grafik menunjukkan bahwa nilai RSS menurun dengan peningkatan jumlah derajat kebebasan hingga mencapai titik minimum pada derajat kebebasan 4, dan kemudian naik kembali dengan peningkatan derajat kebebasan. Titik minimum tersebut menunjukkan derajat kebebasan yang paling optimal untuk model regresi.Dari grafik tersebut, dapat disimpulkan bahwa model regresi dengan derajat kebebasan 10 memberikan hasil yang paling optimal dan efektif dalam menggambarkan hubungan antara variabel prediktor G3 dan variabel respons G2. **
+
+```{r}
+fit2 = smooth.spline(student$G2, student$G3, cv=TRUE)
+```
+
+```{r}
+fit2$df
+```
+
+```{r}
+set.seed(12345)
+df <- rep(NA, 10)
+for (i in 3:10) {
+fit <- glm(G2 ~ bs(G3, df = i), data = student)
+df[i] <- cv.glm(student, fit, K = 10)$delta[1]
+}
+```
+
+```{r}
+df
+```
+
+```{r}
+plot(3:10, df[-c(1, 2)], xlab = "Degrees of freedom", ylab = "Test error",main = "Df terkecil", type = "l")
+d.min <- which.min(df)
+points(d.min, df[d.min], col = "red", cex = 2, pch = 20)
+cat("Test error for the model with", d.min, "degrees of freedom:", round(df[d.min], 3))
+```
+**Analisis : Plot menunjukkan bahwa kesalahan uji menurun secara bertahap seiring dengan peningkatan df, dan kemudian mulai naik ketika df terlalu besar. Titik merah menunjukkan bahwa df terkecil memberikan kesalahan uji terkecil, dan hasil cetakan menunjukkan bahwa kesalahan uji terkecil adalah 4. Dalam analisis ini, kesalahan uji digunakan sebagai ukuran kinerja model, dan df yang menghasilkan kesalahan uji terkecil dipilih sebagai model yang optimal. Plot ini dapat membantu dalam pemilihan model yang optimal dengan menunjukkan trade-off antara kesalahan uji dan kompleksitas model.**
+
+## vi)Kesimpulan dan diskusi(yang dirujuk pada pertanyaan yang ingin anda jawab)
+>1.Regresi polinomial dan regresi spline adalah dua metode regresi yang berbeda untuk memodelkan hubungan antara variabel independen dan dependen.
+>Regresi polinomial melibatkan fitting kurva polinomial pada data, di mana polinomial digunakan untuk menggambarkan hubungan antara variabel independen dan dependen. Regresi polinomial dapat digunakan untuk memodelkan hubungan nonlinear antara variabel independen dan dependen. Namun, regresi polinomial cenderung overfitting jika derajat polinomial yang digunakan terlalu tinggi, dan dapat menghasilkan hasil yang tidak stabil atau tidak dapat diinterpretasikan jika data sangat bervariasi.
+>Sementara regresi spline menggunakan pendekatan yang lebih fleksibel dan adaptif untuk memodelkan hubungan nonlinear antara variabel independen dan dependen. Regresi spline melibatkan fitting serangkaian fungsi spline kecil pada data, yang digunakan untuk menggambarkan hubungan antara variabel independen dan dependen secara lokal. Hal ini memungkinkan regresi spline untuk menangani perubahan tajam dalam hubungan antara variabel independen dan dependen.
+>Kesimpulan, regresi polinomial dan regresi spline adalah dua metode regresi yang berbeda, dimana regresi polinomial digunakan untuk memodelkan hubungan nonlinear antara variabel independen dan dependen, sedangkan regresi spline menggunakan pendekatan yang lebih fleksibel dan adaptif untuk memodelkan hubungan nonlinear antara variabel independen dan dependen secara lokal.
+
+>2.Berdasarkan output ANOVA, kita dapat melihat bahwa model regresi polinomial orde kedua (Model 2) memberikan perbedaan yang signifikan dengan Model 1 (p < 0,001), dan model polinomial orde ketiga (Model 3) juga memberikan perbedaan signifikan dengan Model 2 (p < 0,001). Namun, model-model polinomial orde yang lebih tinggi (Model 4 hingga Model 7) tidak memberikan perbedaan yang signifikan dengan model sebelumnya.
+>Dengan demikian, kita dapat mengambil kesimpulan bahwa Model 3, yaitu regresi polinomial orde tiga, adalah model yang paling sesuai untuk menjelaskan hubungan antara G2 dan G3, karena model ini memberikan perbedaan signifikan dengan model sebelumnya dan juga memiliki jumlah parameter yang cukup untuk menjelaskan variasi dalam data tanpa overfitting.
+
+>3.Berdasarkan hasil error yang diperoleh, model regresi splines memiliki nilai test error yang lebih rendah (1.925) dibandingkan dengan model regresi polinomial (CV error: 1.944063). Oleh karena itu, berdasarkan hasil ini, model regresi splines dapat dianggap lebih baik daripada model regresi polinomial untuk dataset yang diberikan.

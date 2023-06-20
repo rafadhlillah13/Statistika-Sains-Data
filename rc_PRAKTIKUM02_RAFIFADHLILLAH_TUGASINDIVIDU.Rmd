@@ -1,0 +1,641 @@
+---
+title: Modul 2 Praktikum Statistika Sains Data
+viewport: width=device-width, initial-scale=1
+---
+
+### **NAMA : RAFI FADHLILLAH**
+### **NIM : 121450143**
+
+# Human Resource Analytics (Data Analisis untuk HR)
+
+Salah satu cabang yang menarik dari data analitik adalah menggunakan
+data untuk proses streamline dan aplikasinya yang digunakan pada
+organisasi. Human Resources (HR) Specialist merupakan karyawan yang
+bertanggung jawab untuk merekrut, skreening, interview dan menempatkan
+para calon pekerja. HR juga mengatasi hubungan relasi antar pekerja,
+payroll, benefit, dan pelatihan. Analitik dan data dapat membantu HR
+untuk mengumpulkan informasi tentang sentiment pekerja dengan
+perusahaan, dan dapat membantu mentransformasi keseluruhan proses dalam
+organisasi dengan memperhatikan banyak pertimbangan.
+
+# Overview
+
+Organisasi menghabiskan banyak uang, waktu, dan sumber daya untuk
+merekrut orang-orang yang tepat sesuai dengan ruang kerja mereka. Mereka
+juga menghabiskan banyak uang dalam program pelatihan untuk karyawan
+sehingga cocok dengan organisasi dan untuk meningkatkan efektivitas
+karyawan. Oleh karena itu, sangat penting bagi HR untuk mengidentifikasi
+orang-orang yang akan meninggalkan perusahaan pada waktu yang tepat
+untuk mengidentifikasi potensi anggaran yang diperlukan pada proses di
+masa mendatang. HR juga membantu mengurangi pengeluaran yang dilakukan
+perusahaan pada departemen sumber daya manusia.
+
+Human Resource(hr) Analytics adalah area di bidang analitik yang mengacu
+pada penggunaan data dan algoritma oleh departemen sumber daya manusia
+untuk membantu meningkatkan kinerja karyawan dan mendapatkan
+pengembalian investasi yang lebih baik. Hal ini berkaitan dengan gagasan
+untuk menghasilkan wawasan dan keputusan yang berharga bagi departemen
+sumber daya manusia dengan mengerjakan data karyawan dan organisasi
+untuk meningkatkan efisiensi & produktivitas bagi suatu organisasi.
+
+# Problem
+
+Pengurangan dalam suatu perusahaan menandakan pengurangan staf dan
+karyawan dengan organisasi melalui berbagai bentuk seperti pensiun,
+pengunduran diri, kehilangan klien atau lainnya. Pada permasalahan kali
+ini terkait dengan masalah dalam mengidentifikasi potensi perilaku
+karyawan apakah keluar/bertahan di organisasi berdasarkan 33 metrik yang
+dikumpulkan dari data set Karyawan & Atrisi IBM hr Analytics.
+
+Data bisa diperoleh di link berikut ini
+
+[Download
+Data](https://drive.google.com/file/d/1YwHgVhDvUhTbfNPc_XVudqYAKDteM9qs/view?usp=sharing)
+
+# Data Exploration
+
++Columns: 35 +Rows: 1470 +Target Variable: Attrition +Missing Values:
+None
+
+Silahkan install Package jika belum ada
+
+``` {r eval=FALSE}
+install.packages("ggplot2")
+install.packages("dplyr")
+install.packages("rlist")
+install.packages("MASS")
+install.packages("caret")
+install.packages("tidyverse")
+install.packages("gains")
+install.packages("leaps")
+install.packages("pROC")
+install.packages("rpart")
+install.packages("rpart.plot")
+install.packages("ROSE")
+```
+
+``` {r}
+library(ggplot2)
+library(dplyr)
+library(rlist)
+library(MASS)
+library(caret)
+library(tidyverse)
+library(gains)
+library(leaps)
+library(pROC)
+library(rpart)
+library(rpart.plot)
+library(ROSE)
+```
+
+
+``` {r}
+hr <- read.csv("C:/Users/rafif/Downloads/HR.csv", stringsAsFactors = TRUE)
+hr_data<-hr
+hr.df<-hr
+hr_data<-hr
+hr$Education <- as.factor(hr$Education)
+hr$EnvironmentSatisfaction <- as.factor(hr$EnvironmentSatisfaction)
+hr$JobInvolvement <- as.factor(hr$JobInvolvement)
+hr$JobLevel <- as.factor(hr$JobLevel)
+hr$JobSatisfaction <- as.factor(hr$JobSatisfaction)
+hr$PerformanceRating <- as.factor(hr$PerformanceRating)
+hr$RelationshipSatisfaction <- as.factor(hr$RelationshipSatisfaction)
+hr$StockOptionLevel <- as.factor(hr$StockOptionLevel)
+hr$WorkLifeBalance <- as.factor(hr$WorkLifeBalance)
+
+fact_variables <- c('WorkLifeBalance','StockOptionLevel','PerformanceRating',
+                    'JobSatisfaction','RelationshipSatisfaction','JobLevel',
+                    'JobInvolvement','EnvironmentSatisfaction','Education')
+hr_data[,fact_variables] <- lapply(hr_data[,fact_variables] , factor)
+
+names(hr)[1] <- "Age"
+```
+
+Description of Metadata:
+
+Education: 1 'Below College', 2 'College', 3 'Bachelor', 4 'Master', 5
+'Doctor' EnvironmentSatisfaction: 1 'Low', 2 'Medium', 3 'High', 4 'Very
+High' JobInvolvement: 1 'Low', 2 'Medium', 3 'High', 4 'Very High'
+JobSatisfaction: 1 'Low', 2 'Medium', 3 'High', 4 'Very High'
+PerformanceRating: 1 'Low', 2 'Good', 3 'Excellent', 4 'Outstanding'
+RelationshipSatisfaction: 1 'Low', 2 'Medium', 3 'High', 4 'Very High'
+WorkLifeBalance: 1 'Bad', 2 'Good', 3 'Better', 4 'Best'
+
+A glance at top 6 observations in the dataset:
+
+Changing the datatype of few columns:
+
+A few columns in the dataset that were supposed to be categorical are in
+numeric datatype, converting them into factors with the code below:
+
+#### A look at the Attrition distribution
+
+``` {r}
+a <-ggplot(hr, aes(x= Attrition)) +
+  geom_bar()
+a+ labs(x="Attrition")
+```
+
+**Analisis : attrition adalah fenomena yang terjadi di beberapa perusahaan dalam mengurangi jumlah karyawan yang dimiliki dalam jangka waktu tertentu. Dari grafik diatas terlihat distribusi karyawan yang tidak setuju attrition (NO) > karyawan yang setuju dengan attrition (YES) dengan rentang yang sangat jauh artinya dalam dataset ini sebagian besar karyawan tidak setuju dengan adanya kebijakan perusahaan mengurangi jumlah karyawan.**
+
+#### Plot of Age faceted by Attrition
+
+``` {r}
+ggplot(hr, aes(x= Age)) +
+  geom_histogram() + facet_wrap(~ Attrition)
+```
+
+**Analisis : Grafik sebelah kiri merupakan grafik rentang umur karyawan yang tidak setuju attrition(pengurangan jumlah karyawan) terlihat bahwa rentang umur karyawan yang tidak setuju attrition grafiknya mirip seperti distribusi normal atau sebagian besar berada di rentang umur 30 - 40 tahun. Sedangkan untuk grafik sebelah kanan yakni grafik rentang umur karyawan yang setuju attrition kebanyakan berada di rentang umur 25 - 35 tahun dengan grafik yang tidak terdistribusi normal namun terlihat cenderung membentuk skewness positif.**
+
+``` {r}
+options(scipen=999)          
+E <- hr %>%
+  group_by(Attrition) %>%
+  summarise(median(Age))
+E
+```
+
+#### Proportion of Attrition by department
+
+``` {r}
+ggplot(hr, aes(x=Department, fill = Attrition)) + geom_bar(position = "fill") +
+  ylab("proportion")
+```
+
+**Analisis : Grafik diatas merupakan grafik proporsi attrition yang dilihat dari setiap departemen. Terlihat bahwa departemen yang karyawannya paling banyak tidak setuju dengan attrition berada di departemen  R&D (Research and Development) sedangkan untuk departemen Human Resource terlihat hampir sama banyaknya dengan departemen Sales namun departemen Human Resource sedikit lebih banyak karyawan yang tidak setuju dengan attrition dibandingkan departemen Sales.** 
+
+#### Proportion of Attrition by Business Travel
+
+``` {r}
+ggplot(hr, aes(x=BusinessTravel, fill = Attrition)) + geom_bar(position = "fill") +
+  ylab("proportion")
+```
+
+**Analisis :Grafik diatas merupakan grafik dari proporsi attrition dilihat dari Business Travel. Dari grafik tersebut terlihat bahwa karyawan yang paling banyak setuju dengan adanya attrition pada Business Travel ialah karyawan travel yang sering berpergian(Travel_Frequently) sedangkan karyawan yang setuju attrition terbanyak kedua adalah travel yang jarang berpergian(Travel_Rarely), lalu untuk karyawan yang tidak berpergian(Non_Travel) merupakan yang paling sedikit setuju dengan adanya attrition berdasarkan dataset ini.**
+
+#### Proportion of Attrition by Education Level
+
+``` {r}
+ggplot(hr, aes(x=Education, fill = Attrition)) + geom_bar(position = "fill") 
+```
+
+**Analisis : Grafik di atas merupakan grafik yang menggambarkan proporsi attrition berdasarkan tingkat pendidikan karyawan. Dari grafik diatas terlihat gambaran umumnya bahwa semakin rendah tingkat pendidikan maka semakin banyak jumlah karyawan yang terkena dampak attrition. Namun tetap ada sedikit perbedaan yakni antara tingkat pendidikan 2 dan 3 karena tingkat pendidikan 3 lebih banyak yang terkena dampak attrition dibandingkan tingkat pendidikan 2.**
+
+#### Attrition vs Distance from home
+
+``` {r}
+ggplot(hr, aes(x=DistanceFromHome, fill = Attrition)) + geom_density(alpha=0.3) 
+```
+
+**Analisis : Grafik diatas merupakan grafik yang membandingkan densitas variabel attrition dengan variabel yang menggambarkan jarak rumah karyawan.Terlihat bahwa densitas karyawan yang tidak setuju adanya attrition lebih besar dibandingkan karyawan yang setuju dengan adanya attrition.**
+
+``` {r}
+options(scipen=999)          
+D <- hr %>%
+  group_by(Attrition) %>%
+  summarise(mean(DistanceFromHome))
+D
+```
+
+**Analisis : Karyawan dengan jarak rumah dengan rataan nilai 8.92 menolak attrition, sedangkan karyawan dengan jarak rumah rata - rata 10.6 setuju dengan attrition.**
+
+#### Proportion of Attrition by Education
+
+``` {r}
+ggplot(hr, aes(x=EducationField, fill = Attrition)) + geom_bar(position = "fill") + 
+ylab("proportion") 
+```
+
+**Analisis : Berdasarkan grafik di atas diketahui proporsi karyawan yang tidak setuju adanya attrition paling banyak terdapat pada departemen pendidikan Medical dan Other lalu diikuti dengan departemen pendidikan Life Science, Marketing, Technical Degree, dan Human Resources.**
+
+#### Daily rate vs Attrition
+
+``` {r}
+ggplot(hr, aes(x= DailyRate, fill= Attrition)) + geom_density(alpha = 0.3) 
+```
+
+**Analisis : Grafik diatas merupakan grafik densitas gaji harian vs Attrition artinya, karyawan dengan gaji harian tinggi kebanyakan tidak setuju dengan adanya attrition dengan nilai densitas yang lebih kecil dibandingkan karyawan yang setuju dengan attrition.**
+
+``` {r}
+options(scipen=999)          
+B <- hr %>%
+  group_by(Attrition) %>%
+  summarise(mean(DailyRate))
+B
+```
+
+**Analisis : Disimpulkan bahwa karyawan yang keluar dari pekerjaan (status "Attrition" = Yes) memiliki rata-rata gaji harian lebih rendah dibandingkan dengan karyawan yang tetap (status "Attrition" = No). Karyawan yang keluar dari pekerjaan memiliki rata-rata gaji harian sebesar 750, sementara karyawan yang tetap memiliki rata-rata gaji harian sebesar 813.**
+
+#### Breakdown of dailyrate by department
+
+``` {r}
+ggplot(hr, aes(x= DailyRate, fill= Department)) + geom_density(alpha = 0.3)          
+```
+
+**Analisis : Code diatas menggunakan ggplot2 untuk membuat plot kernel density dengan variabel x = DailyRate dan variabel fill = Department. Grafik kernel density yang menunjukkan distribusi data DailyRate berdasarkan Department. Setiap kurva akan memiliki warna fill yang berbeda untuk membedakan antara kurva yang berasal dari setiap Department.**
+
+``` {r}
+options(scipen=999)          
+A <- hr %>%
+  group_by(Department) %>%
+  summarise(mean(DailyRate), min(DailyRate), max(DailyRate))
+A
+```
+
+**Analisis : Departemen dengan rata-rata gaji harian tertinggi adalah Research & Development, dengan rata-rata 807 per hari. Sementara itu, Human Resources memiliki rata-rata gaji harian terendah dengan nilai 752 per hari. Departemen dengan gaji harian tertinggi adalah Sales, dengan nilai tertinggi 1499, sementara departemen dengan gaji harian terendah adalah Human Resources, dengan nilai terendah 106.**
+
+#### Breakdown of dailyrate by Education field
+
+``` {r}
+options(scipen=999)          
+C <- hr %>%
+  group_by(EducationField) %>%
+  summarise(mean(DailyRate), min(DailyRate), max(DailyRate))
+C
+```
+
+**Analisis : Karyawan dengan latar belakang pendidikan di bidang "Technical Degree" memiliki rata-rata gaji harian tertinggi dengan nilai sebesar 842 per hari. Sementara itu, karyawan dengan latar belakang pendidikan di bidang "Human Resources" memiliki rata-rata gaji harian terendah dengan nilai sebesar 675 per hari. Selain itu, dapat juga dilihat bahwa bidang pendidikan dengan nilai gaji harian tertinggi kedua adalah "Medical" dengan nilai rata-rata sebesar 823 per hari, sementara bidang pendidikan dengan nilai gaji harian terendah kedua adalah "Marketing" dengan nilai rata-rata sebesar 728 per hari.**
+
+## Proportion of Attrition by TRainingTineLastYear
+
+``` {r}
+ggplot(hr_data, aes(x=hr_data$TrainingTimesLastYear, fill = hr_data$Attrition)) + geom_bar(position = "fill") +
+  ylab("proportion")
+```
+
+**Analisis : Berdasarkan grafik di atas dihitung proporsi attrition berdasarkan TRainingTineLastYear terlihat bahwa karyawan yang menolak attrition lebih banyak dibandingkan karyawan yang setuju dengan attrition**
+
+#### Proportion of Attrition by WorkLifeBalance
+
+``` {r}
+ggplot(hr_data, aes(x=hr_data$WorkLifeBalance, fill = hr_data$Attrition)) + geom_bar(position = "fill") +
+  ylab("proportion")
+```
+
+**Analisis : Berdasarkan grafik di atas dihitung proporsi attrition berdasarkan WorkLifeBalance hasilnya sama seperti grafik sebelumnya yakni  terlihat bahwa karyawan yang menolak attrition lebih banyak dibandingkan karyawan yang setuju dengan attrition**
+
+
+## Count of Attrition by TotalWorkingYears
+
+Majority of Employees have 0-10 years as Total working years. As number
+of years increases, attrition of No increases.
+
+``` {r}
+plot_1 = ggplot(hr_data, aes(TotalWorkingYears,fill = factor(Attrition)))
+plot_2 = plot_1 + geom_histogram(stat="count")
+```
+
+
+``` {r}
+print(plot_2)
+```
+
+**Analsis : Grafik diatas dihitung berdasarkan attrition dengan TotalWorkingYears terlihat dari grafik tersebut tidak terdistribusi normal dan lebih menunjukan skewness positif dengan nilai max berada tepat pada waktu 10 tahun.**
+
+## Plot of Employees by YearsAtCompany
+
+Most of the employees are new and have served the company for less than
+10 years.
+
+``` {r}
+ggplot(hr_data) + 
+  geom_histogram(mapping=(aes(YearsAtCompany)),fill="red",col="white",binwidth = 1) + 
+  labs(x="Years at the company", y="Employees", title="Working Years at Company") + theme(legend.position="none")
+```
+
+**Analsis : Grafik diatas dihitung berdasarkan karyawan dengan lama bekerja dalam tahun, terlihat dari grafik tersebut tidak terdistribusi normal dan lebih menunjukan skewness positif dengan nilai max berada di rentang waktu 1 - 10 tahun.**
+
+## Plot of Employees Count by CurrentRole
+
+Years that Majority of employees remain in the current role are between
+0-7 years. Most of the employees have been in the same role for long
+period.
+
+``` {r}
+ggplot(hr_data) + 
+  geom_histogram(mapping=(aes(YearsInCurrentRole)),fill="red",col="white",binwidth = 1) + 
+  labs(x="Years in Current Role", y="Employees", title="Years in Current Role") + theme(legend.position="none")
+```
+
+**Analsis : Grafik diatas dihitung berdasarkan karyawan dengan CurrentRole terlihat dari grafik tersebut tidak terdistribusi normal dan lebih menunjukan skewness positif**
+
+# Algorithms for Attrition Prediction:
+
+# Logistic Regression
+
+### How & why to choose it:
+
+Logistic regression is highly popular and powerful in terms of
+classification. Similar with linear regression, it relies on a specific
+model relating the predictors with the outcome. Due to the fact that we
+must specify the predictors and include their form in this algorithm,
+even small datasets can be used for building logistic regression
+classifiers, which is the case here.
+
+### Brief description of the algorithm:
+
+The idea behind logistic regression is straightforward: instead of using
+Y directly as the outcome variable, we use a function of it -- the logit
+(the log of odds), which can be modeled as a linear function of
+predictors. Once the logit has been predicted, it can be mapped back to
+a probability.
+
+# Data Preprocessing:
+
+1.We drop the obvious needless columns here: Employee Count, Over 18,
+Employee Number (all the same), StandardHours (all the same)
+
+``` {r}
+hr.df <- hr.df[, -c(9,10,22,27)]
+```
+
+2.  treat the below variables as categorical
+
+``` {r}
+hr.df$Education <- factor(hr.df$Education, 
+                          levels = c(1,2,3,4,5),
+          labels = c('Below College','College','Bachelor','Master','Doctor'))
+
+hr.df$EnvironmentSatisfaction <- factor(hr.df$EnvironmentSatisfaction,
+                                        levels = c(1,2,3,4),
+          labels = c('Low','Medium','High','Very High'))
+
+hr.df$JobInvolvement <- factor(hr.df$JobInvolvement,
+                                        levels = c(1,2,3,4),
+                                      labels = c('Low','Medium','High','Very High'))
+
+hr.df$JobLevel <- factor(hr.df$JobLevel,
+                               levels = c(1,2,3,4,5),
+                      labels = c('Very Low','Low','Medium','High','Very High'))
+
+hr.df$JobSatisfaction <- factor(hr.df$JobSatisfaction,
+                               levels = c(1,2,3,4),
+                               labels = c('Low','Medium','High','Very High'))
+
+hr.df$PerformanceRating <- factor(hr.df$PerformanceRating,
+                                  levels = c(1,2,3,4),
+      labels = c('Low','Good','Excellent','Outstanding'))
+
+hr.df$RelationshipSatisfaction <- factor(hr.df$RelationshipSatisfaction,
+                                  levels = c(1,2,3,4),
+                           labels = c('Low','Medium','High','Very High'))
+
+hr.df$WorkLifeBalance <- factor(hr.df$WorkLifeBalance,
+                                         levels = c(1,2,3,4),
+                               labels = c('Bad','Good','Better','Best'))
+
+hr.df$StockOptionLevel <- factor(hr.df$StockOptionLevel,
+                                 levels = c(0,1,2,3),
+                                 labels = c('Low','Medium','High','Very High'))
+```
+
+3.  partition data into training and validation dataset: 60% of
+    training, 40% of validation
+
+``` {r}
+library(caret)
+training.index <- createDataPartition(hr.df$Attrition, p = 0.60, list = FALSE)
+
+hr.train.df <- hr.df[training.index, ]
+hr.valid.df <- hr.df[-training.index, ]
+```
+
+4.  normalize the data for numeric variables, since they are not using
+    the same metrics (e.g. years vs dollars)
+
+``` {r}
+hr.norm <- preProcess(hr.train.df, method = c("center", "scale"))
+
+hr.train.norm <- predict(hr.norm, hr.train.df)
+hr.valid.norm <- predict(hr.norm, hr.valid.df)
+```
+
+Now we use the normalized data to run logistic regression
+
+``` {r}
+lm.fit <- glm(Attrition~., family = "binomial"(link="logit"), data = hr.train.norm)
+```
+
+show coefficients and odds:
+
+``` {r}
+lm.summary <- data.frame(summary(lm.fit)$coefficients, odds = exp(coef(lm.fit)))
+options(scipen = 999)
+round(lm.summary, 5)
+```
+
+**Analisis : Output tersebut adalah hasil regresi linear berganda. Setiap variabel independen yang digunakan untuk memprediksi variabel dependen (dalam hal ini variabel respon adalah tidak tercantum) dilampirkan di samping koefisien regresi dan nilai-nilai statistik yang terkait dengannya. Kolom 'Estimate' berisi koefisien regresi, yang menunjukkan seberapa banyak variabel independen mempengaruhi variabel dependen. Kolom 'Std.Error' berisi kesalahan standar dari koefisien regresi. 'z.value' menunjukkan seberapa signifikan koefisien regresi secara statistik (dalam hal ini, apakah itu jauh dari 0 atau tidak) dan 'Pr , z' adalah nilai p yang terkait, yang menunjukkan seberapa kecil kemungkinan kita mengamati nilai koefisien regresi ini secara acak jika tidak ada hubungan antara variabel independen dan dependen.**
+
+**Secara khusus, hasil output menunjukkan bahwa variabel independen BusinessTravelTravel_Frequently, BusinessTravelTravel_Rarely, DistanceFromHome, EnvironmentSatisfactionMedium, EnvironmentSatisfactionHigh, EnvironmentSatisfactionVeryHigh, JobInvolvementMedium, JobInvolvementHigh, JobInvolvementVeryHigh, JobLevelLow, JobRoleSales Executive, JobSatisfactionHigh, JobSatisfactionVeryHigh, dan GenderMale signifikan secara statistik dalam memprediksi variabel dependen (yang tidak disebutkan). Variabel lainnya tidak signifikan secara statistik, karena nilai p mereka melebihi alpha (level of significance) yang telah ditetapkan. Namun, penting untuk memperhatikan bahwa hasil ini hanya memberikan gambaran awal tentang hubungan antara variabel dan tidak menjamin kausalitas atau kesimpulan yang pasti.**
+
+### Interpret the results:
+
+For illustration, the odds has been present using the EXP() function
+here. (the odds = e\^coefficient) For continuous variables, the odds is
+the multiplicative factor by which the odds (of belonging to class 1)
+increase when the value of predictor is increased by 1 unit, holding all
+other predictors constant. For dummy variable predictors, the odds means
+the chance on outcome with predictor of being 1 vs.being zero.
+
+As we can see, OvertimeYes, JobRoleSalesExecutive, JobRoleSalesRep,
+JoblevelVeryHigh and BusinessTravelTravel_Frequently has the largest
+odds here positively (the 3 variables with coefficient of 14 are not
+discussed here due to high p value), while other predictors have an
+small to moderate impact on attrition, either positively or negatively.
+
+Evaluate the results on validation dataset using confusion matrix:
+
+``` {r}
+pred <- predict(lm.fit, hr.valid.norm, type = 'response')
+confusionMatrix(as.factor(ifelse(pred > 0.5, "Yes", "No")), 
+                as.factor(hr.valid.norm$Attrition))
+```
+
+As we can see, the overall accuracy is 87.7% with a Specificity of
+46.8%.
+
+**Analisis : Dalam analisis statistik, hasil yang disajikan terdiri dari beberapa ukuran kinerja, yaitu:**
+
+- Accuracy: Nilai ini menunjukkan seberapa akurat model dalam melakukan prediksi dengan membandingkan jumlah prediksi yang benar dengan total prediksi. Dalam kasus ini, akurasi model adalah 0,8739 atau 87,4%.
+
+- P-Value: Nilai ini menunjukkan signifikansi dari hasil uji hipotesis. P-value yang lebih rendah menunjukkan bahwa hasil uji hipotesis lebih signifikan. Dalam kasus ini, P-Value adalah 0,01225.
+
+- Kappa: Nilai ini menunjukkan seberapa baik model dalam melakukan klasifikasi. Kappa memiliki rentang nilai antara -1 dan 1, di mana nilai 1 menunjukkan klasifikasi yang sempurna, nilai 0 menunjukkan klasifikasi yang acak, dan nilai negatif menunjukkan klasifikasi yang buruk. Dalam kasus ini, nilai kappa adalah 0,4823 yang menunjukkan model memiliki klasifikasi yang sedang.
+
+- Mcnemar's Test P-Value: Nilai ini menunjukkan signifikansi dari hasil uji hipotesis McNemar. Nilai yang lebih rendah menunjukkan bahwa hasil uji hipotesis lebih signifikan. Dalam kasus ini, Mcnemar's Test P-Value adalah 0,01464.
+
+**Berdasarkan hasil di atas, dapat disimpulkan bahwa model memiliki akurasi yang baik dengan nilai 0,8739. Meskipun P-Value tidak terlalu rendah, tetapi tetap menunjukkan signifikansi yang cukup. Nilai kappa menunjukkan bahwa model memiliki klasifikasi yang sedang dan nilai Mcnemar's Test P-Value menunjukkan signifikansi hasil uji hipotesis McNemar. Namun, untuk menentukan keberhasilan suatu model, perlu dilihat juga aspek lain seperti recall, precision, dan F1-score.**
+
+Plotting lift/decile chart:
+
+``` {r}
+library(gains)
+hr.valid.norm$isAttrition <- 1 * (hr.valid.norm$Attrition == "Yes")
+gain <- gains(hr.valid.norm$isAttrition, pred)
+
+### Plot Lift Chart
+plot(c(0,gain$cume.pct.of.total*sum(hr.valid.norm$isAttrition))~c(0,gain$cume.obs), 
+     xlab = "# cases", ylab = "Cumulative", main = "", type = "l")
+lines(c(0,sum(hr.valid.norm$isAttrition))~c(0, dim(hr.valid.norm)[1]), lty = 5)
+```
+
+**Analisis : plot lift chart dibuat dengan menggunakan fungsi "plot". Pada plot tersebut, sumbu-x menunjukkan kumulatif jumlah kasus, sedangkan sumbu-y menunjukkan persentase kumulatif kasus yang diprediksi sebagai attrition. Garis putus-putus menunjukkan baseline, yaitu prediksi yang tidak menggunakan model. Sedangkan garis solid menunjukkan prediksi yang dihasilkan oleh model.**
+
+**Dengan lift chart ini, kita dapat melihat seberapa baik model prediksi dalam memprediksi kasus attrition. Semakin tinggi garis solid dibandingkan garis putus-putus, semakin baik kinerja model dalam memprediksi kasus attrition.**
+
+``` {r}
+### Plot decile-wise chart
+heights <- gain$mean.resp/mean(hr.valid.norm$isAttrition)
+midpoints <- barplot(heights, names.arg = gain$depth,  ylim = c(0,9), col = "gold3",  
+                     xlab = "Percentile", ylab = "Mean Attrition", 
+                     main = "Decile-wise lift chart")
+```
+
+**Analisis : Code di atas digunakan untuk membuat decile-wise chart, yaitu chart yang menunjukkan rasio antara mean response variabel target (dalam hal ini adalah "Attrition") dan rata-rata sebenarnya dari variabel target. Rasio ini digunakan untuk mengevaluasi kinerja model dalam memprediksi variabel target.**
+
+# Linear Discriminant Analysis
+
+## Removing unnecessary columns
+
+``` {r}
+hr_data$StandardHours<- NULL
+hr_data$EmployeeCount<- NULL
+hr_data$Over18<- NULL
+hr_data$EmployeeNumber<- NULL
+```
+
+## Data Partition
+
+``` {r}
+row<- seq(1,nrow(hr_data),1)
+set.seed(10)
+train_rows<- sample(row, 0.7*nrow(hr_data))
+train <- hr_data[train_rows, ]
+valid <- hr_data[-train_rows, ]
+```
+
+# Normalize the data
+
+# Estimate preprocessing parameters
+
+``` {r}
+library(caret)
+norm.values  <- preProcess(train, method = c("center", "scale"))
+```
+
+# Transform the data using the estimated parameters
+
+``` {r}
+train.norm <- predict(norm.values, train)
+valid.norm <- predict(norm.values, valid)
+```
+
+# run lda()
+
+``` {r}
+library(MASS)
+lda1 <- lda(Attrition~., data = train.norm)
+lda1$counts
+```
+
+# output
+
+LDA uses means and variances of each class in order to create a linear
+boundary between them. This boundary is delimited by the coefficients.
+Prior probabilities of groups: These probabilities are the ones that
+already exist in your training data. You can see in the output that the
+probabilities of groups for No is 84.01% and that for Yes is 15.98%.
+Group means: This gives is the average of each predictor within each
+class.
+
+The calculated coefficient for ETAin the first model is -0.22623738.
+This means that the boundary between the two different classes will be
+specified by the following formula:
+
+y = -0.22623738 \* AGE
+
+``` {r}
+lda1
+```
+
+**Analisis : Output tersebut merupakan hasil dari model LDA (Linear Discriminant Analysis) pada data train setelah dilakukan normalisasi. Model ini digunakan untuk memprediksi atribut "Attrition" dengan menggunakan atribut-atribut lain sebagai prediktor.**
+
+**Output ini terdiri dari tiga bagian. Bagian pertama adalah informasi mengenai model yang digunakan, yaitu LDA dengan formula Attrition ~ . (artinya Attrition sebagai respon dan atribut lain sebagai prediktor).**
+
+**Bagian kedua merupakan prior probabilities dari kedua kelompok (No dan Yes). Probabilitas prior menunjukkan proporsi dari setiap kategori pada sampel data, dalam hal ini proporsi karyawan yang tetap dan karyawan yang keluar.**
+
+**Bagian ketiga merupakan nilai rata-rata atribut dalam setiap kelompok. Perbedaan nilai rata-rata atribut antara kedua kelompok dapat dijadikan acuan untuk mengevaluasi atribut mana yang membedakan karyawan yang keluar dan tetap bekerja. Misalnya, atribut "Age" memiliki nilai rata-rata yang lebih rendah pada kelompok karyawan yang keluar dibandingkan dengan karyawan yang tetap. Hal ini menunjukkan bahwa karyawan yang keluar cenderung lebih muda daripada karyawan yang tetap. Demikian pula, atribut "OverTimeYes" memiliki nilai rata-rata yang lebih tinggi pada kelompok karyawan yang keluar, sehingga dapat disimpulkan bahwa karyawan yang keluar cenderung lebih sering melakukan lembur.**
+
+# predict - using training data and plot
+
+You can see that there is lot of overlapping between Yes and No.
+
+``` {r}
+pred1.train <- predict(lda1, train.norm)
+ldahist(data = pred1.train$x[,1], g = train.norm$Attrition)
+```
+
+**Analisis : Output yang dihasilkan berupa histogram yang menunjukkan distribusi hasil prediksi LDA terhadap variabel target Attrition pada dataset train.norm. Histogram tersebut menunjukkan bahwa hasil prediksi LDA cenderung lebih tinggi untuk data yang memiliki nilai target Attrition yang lebih rendah (0) daripada yang memiliki nilai target Attrition yang lebih tinggi (1). Hal ini menunjukkan bahwa model LDA lebih baik dalam memprediksi data**
+
+``` {r}
+pred2.valid <- predict(lda1, valid.norm)
+names(pred2.valid)
+```
+
+# Model accuracy
+
+``` {r}
+table(pred2.valid$class, valid.norm$Attrition)  
+```
+
+``` {r}
+mean(pred2.valid$class == valid.norm$Attrition)  
+```
+
+``` {r}
+sum(pred2.valid$posterior[, 1] >=.5)
+```
+
+
+``` {r}
+sum(pred2.valid$posterior[, 1] >=.75)
+```
+
+### lift chart
+
+``` {r}
+library(gains)
+gain <- gains(as.numeric(valid.norm$Attrition), pred2.valid$x[,1], groups = 10)
+```
+
+### Gains
+
+``` {r}
+valid.norm$Attrition<- as.numeric(valid.norm$Attrition)
+plot(c(0,gain$cume.pct.of.total*sum(valid.norm$Attrition))~c(0,gain$cume.obs), 
+     xlab="Cases", ylab="Cumulative Lift", main="LIFT CHART", 
+     col = "blue1", type="l")
+lines(c(0,sum(valid.norm$Attrition))~c(0, dim(valid)[1]), lty = 9)
+```
+
+**Analisis : Hasil output tersebut menunjukkan grafik gains chart dengan garis biru yang menunjukkan performa model dan garis putus-putus yang menunjukkan baseline acak. Grafik menunjukkan bahwa model memiliki performa yang lebih baik daripada baseline acak, karena garis biru berada di atas garis putus-putus. Hal ini menunjukkan bahwa dengan menggunakan model ini, kita dapat memprediksi lebih banyak kasus positif dengan mengambil lebih sedikit sampel dibandingkan jika kita memilih sampel secara acak. Namun, hasil output tersebut juga menunjukkan bahwa performa model tersebut belum optimal, karena garis biru tidak sejajar dengan sumbu y secara vertikal. Oleh karena itu, kita dapat mencoba untuk mengoptimalkan model lebih lanjut dengan mengevaluasi dan menyesuaikan parameter model untuk mencapai performa yang lebih baik.**
+
+### Plot decile-wise chart
+
+You can see that all the deciles are in the descending order which is a
+good sign of decile chart.The records are sorted by their predicted
+scores. The top decile contains the 10% of the employees most likely
+with Yes and the bottom decile contains the 10% of the employees. Also,
+it tells us that out LDA model preforms better for top 20% deciles
+compared to the naive model.
+
+``` {r}
+heights <- gain$mean.resp/mean(valid.norm$Attrition)
+barplot(heights, names.arg = gain$depth,  ylim = c(0,2),  
+                 xlab = "Percentile", ylab = "Leave Response", 
+                 main = "Decile chart")
+```
+
+**Analisis : Output yang dihasilkan adalah decile chart yang menunjukkan perbandingan antara rata-rata respon prediksi model terhadap rata-rata respon aktual pada setiap grup. Semakin tinggi tinggi bar pada decile chart, semakin besar tingkat response rate pada grup tersebut. Dari decile chart, dapat dilihat bahwa prediksi model memiliki tingkat akurasi yang baik dalam memprediksi tingkat respon pada grup 1-3, namun semakin rendah pada grup-grup berikutnya. Hal ini dapat menjadi bahan evaluasi dan penyempurnaan model agar dapat meningkatkan tingkat akurasi pada grup-grup tersebut.**

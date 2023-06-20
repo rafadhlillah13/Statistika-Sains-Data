@@ -1,0 +1,155 @@
+---
+title: "Tugas Individu Modul 8 Praktikumm SSD"
+date: "2023-05-05"
+output: html_document
+---
+
+## Pohon klasifikasi diterapkan pada kumpulan data Carseats setelah mengubah Penjualan (sales) menjadi variabel respons kualitatif. Sekarang kita akan berusaha memprediksi Penjualan menggunakan pohon regresi dan pendekatan terkait, memperlakukan respon sebagai variabel kuantitatif.
+
+
+## IMPORT LIBRARY
+```{r}
+library(ISLR)
+library(knitr)
+library(tree)
+library(ggplot2)
+library(ggdendro)
+library(randomForest)
+```
+
+## 1. Pisahkan kumpulan data menjadi data training dan data testing
+
+```{r}
+data(Carseats)
+str(Carseats)
+attach(Carseats)
+```
+#### Splited data into 60% to training set and 40% to test set.
+```{r}
+set.seed(123)
+train <- sample(1:nrow(Carseats), 0.6*nrow(Carseats))
+Carseats.train = Carseats[train, ]
+Carseats.test = Carseats[-train, ]
+kable(head(Carseats.train))
+```
+
+
+## 2. Gunakan pohon regresi ke training set. Plot pohonnya, dan interpretasikan hasilnya. Berapa hasil MSE yang anda dapatkan?
+```{r}
+tree.carseats = tree(Sales ~ ., data = Carseats.train)
+summary(tree.carseats)
+```
+
+```{r}
+plot(tree.carseats)
+text(tree.carseats,pretty = 0, cex=.75)
+```
+
+
+#### Carseats tree
+
+```{r}
+tree_data <- dendro_data(tree.carseats)
+ggplot() +
+geom_segment(data = tree_data$segments,
+aes(x = x, y = y, xend = xend, yend = yend)) +
+geom_text(data = subset(tree_data$labels,!is.na(x)),
+aes(x = x, y = y, label = label), size = 3, vjust = -0.5) +
+geom_text(data = subset(tree_data$labels,!is.na(x)),
+aes(x = x, y = y, label = label), size = 2, vjust = 1) + theme_dendro()
+```
+```{r}
+pred.carseats = predict(tree.carseats, newdata = Carseats.test)
+MSE<-mean((Carseats.test$Sales - pred.carseats)^2)
+paste("Test MSE of tree model = ", MSE)
+```
+
+## 3. Gunakan cross validation untuk menentukan tingkat kompleksitas pohon yang optimal. Apakah pemangkasan(pruning) pohon meningkatkan hasil MSE?
+
+```{r}
+# Perform cross-validation and plot
+set.seed(123)
+cv.carseats <- cv.tree(tree.carseats, FUN = prune.tree)
+size.min <- cv.carseats$size[which.min(cv.carseats$dev)]
+paste("Size with the lowest deviance: ", size.min)
+```
+
+```{r}
+plot(cv.carseats, type='b')
+points(size.min, cv.carseats$dev[size.min], col = "red", cex = 2, pch = 11)
+```
+
+```{r}
+Size<-cv.carseats$size
+Deviance<-cv.carseats$dev
+da<-data.frame(Size,Deviance) #buat data frame
+ggplot(da, aes(x=Size, y=Deviance))+ geom_line(colour='blue')+geom_point(colour='red') +geom_point(aes(cv.carseats$size[size.min], cv.carseats$dev[size.min]), col = "red", cex = 2, pch = 20)
+```
+
+#### Pemangkasan(pruning)
+```{r}
+prune.carseats <- prune.tree(tree.carseats, best=size.min)
+plot(prune.carseats)
+text(prune.carseats, pretty=0, cex=0.6)
+```
+
+### Pemangkasan(pruning) tree
+```{r}
+tree_data1 <- dendro_data(prune.carseats, type = "proportional")
+
+ggplot() +
+  geom_segment(data = tree_data1$segments, aes(x = x, y = y, xend = xend, yend = yend)) +
+  geom_text(data = tree_data1$labels, aes(x = x, y = y, label = label), size = 3, vjust = 1) +
+  geom_text(data = tree_data1$leaf_labels, aes(x = x, y = y, label = label), size = 3, vjust = 1) + theme_dendro()
+```
+
+
+```{r}
+pred.pruned <- predict(prune.carseats, Carseats.test)
+purn_mse <- mean((Carseats.test$Sales - pred.pruned)^2)
+paste("Test MSE of Pruned tree model = ", purn_mse)
+```
+
+
+## 4. Gunakan pendekatan bagging untuk menganalisis data ini. Tes MSE apa yang anda dapatkan? gunakan fungsi important() untuk menentukan variabel mana yang paling penting
+
+
+```{r}
+set.seed(123)
+bag.carseats <- randomForest(Sales ~ ., data = Carseats.train, mtry = 10, ntree = 500, importance = TRUE)
+bag.pred <- predict(bag.carseats, Carseats.test)
+MSE_BAG <- mean((Carseats.test$Sales - bag.pred)^2)
+paste("Test MSE of Bagging tree model = ", MSE_BAG)
+```
+
+```{r}
+importance(bag.carseats)
+```
+```{r}
+#Baging method decreased the test error to 3.11
+
+# definisikan variabel yang dibutuhkan
+MSE_Tree <-  4.7024
+purn_mse <- 4.7665
+MSE_BAG <- 2.6814
+
+# buat tabel menggunakan fungsi kable()
+kable(data.frame(Method = c("Tree", "Pruned Tree", "Bagging Tree"),Test_Error = c(MSE_Tree, purn_mse, MSE_BAG)))
+```
+
+
+## 5. Gunakan random forest untuk menganalisis data ini. Berapa tingkat kesalahan pengujian yang Anda peroleh? Gunakan fungsi important() untuk menentukan variabel mana yang paling penting. Jelaskan pengaruh m, jumlah variabel yang dipertimbangkan pada setiap pemisahan, pada tingkat kesalahan yang diperoleh.
+
+
+```{r}
+set.seed(123)
+rf.carseats <- randomForest(Sales ~ ., data = Carseats, mtry = 3, ntree = 500, importance = TRUE)
+rf.pred <- predict(rf.carseats, newdata = Carseats)
+paste("MSE test error of random forest=", mean((rf.carseats$y - rf.pred)^2))
+```
+
+```{r}
+# menampilkan variable yang penting
+importance(rf.carseats)
+```
+

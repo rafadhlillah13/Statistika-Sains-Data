@@ -1,0 +1,348 @@
+---
+title: "Prediksi Penyakit Batu Ginjal berdasarkan Analisis Urine Menggunakan Metode KNN"
+output: html_document
+date: "2023-05-10"
+---
+
+### Import Library
+```{r}
+library(ggplot2)
+library(ISLR)
+library(DataExplorer)
+library(skimr)
+library(gridExtra)
+library(ggplot2)
+library(knitr)
+library(class)
+library(dplyr)
+library(tidyr)
+library(plotly)
+library(gmodels)
+library(cluster)
+library(corrplot)
+library(pROC)
+library(gridExtra)
+library(reshape2)
+```
+### About Dataset
+Berikut adalah penjelasan untuk setiap variabel dalam dataset:
+
+- Id: Nomor identifikasi atau indeks data dalam dataset.
+- Gravity: Densitas batu ginjal dalam g/cm^3. Rentang nilainya adalah antara 1.02 hingga 1.03, dengan rata-rata sekitar 1.02 dan deviasi standar sekitar 0.01.
+- pH: Nilai pH urin, yang mengindikasikan keasaman atau kebasaan urin. Rentang nilainya adalah antara 4.76 hingga 7.94, dengan rata-rata sekitar 6.04 dan deviasi standar sekitar 0.71.
+- Osmo: Osmolaritas urin, yang mengukur konsentrasi partikel dalam urin. Rentang nilainya adalah antara 187 hingga 1236, dengan rata-rata sekitar 602.33 dan deviasi standar sekitar 238.46.
+- Cond: Konduktivitas urin, yang mengukur kemampuan urin dalam menghantarkan listrik. Rentang nilainya adalah antara 5.10 hingga 38.00, dengan rata-rata sekitar 20.62 dan deviasi standar sekitar 7.65.
+- Urea: Konsentrasi urea dalam urin, yang dapat mencerminkan fungsi ginjal. Rentang nilainya adalah antara 10.00 hingga 620.00, dengan rata-rata sekitar 258.20 dan deviasi standar sekitar 135.38.
+- Calc: Konsentrasi kalsium dalam urin, yang dapat terkait dengan pembentukan batu ginjal. Rentang nilainya adalah antara 0.17 hingga 13.00, dengan rata-rata sekitar 4.02 dan deviasi standar sekitar 3.02.
+- Target: Variabel target atau kelas yang menunjukkan apakah sampel batu ginjal positif (1) atau negatif (0). Proporsi sampel positif sekitar 50%.
+
+### Import Dataset
+```{r}
+kidney_stone <- read.csv("C:/Users/rafif/Downloads/kidneystone.csv", stringsAsFactors = TRUE)
+glimpse(kidney_stone)
+```
+
+
+```{r}
+skim(kidney_stone)
+```
+
+```{r}
+# Menampilkan jumlah observasi dan variabel
+dim(kidney_stone)
+```
+
+```{r}
+# Menampilkan daftar variabel
+names(kidney_stone)
+```
+
+
+### Pembersihan data 
+```{r}
+#menghitung jumlah data kosong
+sum(is.na(kidney_stone))
+```
+
+```{r}
+# Periksa apakah ada nilai duplikat di dalam dataset
+sum(duplicated(kidney_stone))
+```
+
+```{r}
+plot_intro(data = kidney_stone,
+           geom_label_args = list(size=2.5))
+```
+
+### Ringkasan Numerik
+```{r}
+# Membuat ringkasan numerik
+summary(kidney_stone)
+```
+
+### Plot EDA
+```{r}
+# 2. Histograms
+
+# Membuat plot histogram untuk setiap variabel
+plot_calc <- ggplot(kidney_stone, aes(x = calc)) +
+  geom_histogram(fill = "#377EB8") +
+  labs(title = "Histogram of Calc")
+
+plot_osmo <- ggplot(kidney_stone, aes(x = osmo)) +
+  geom_histogram(fill = "#FF7F00") +
+  labs(title = "Histogram of Osmo")
+
+plot_cond <- ggplot(kidney_stone, aes(x = cond)) +
+  geom_histogram(fill = "#4DAF4A") +
+  labs(title = "Histogram of Cond")
+
+plot_urea <- ggplot(kidney_stone, aes(x = urea)) +
+  geom_histogram(fill = "#984EA3") +
+  labs(title = "Histogram of Urea")
+
+# Menggabungkan plot ke dalam grid
+grid_plot <- grid.arrange(plot_calc, plot_osmo, plot_cond, plot_urea, nrow = 2, ncol = 2)
+
+# Menampilkan grid plot
+grid_plot
+```
+
+
+```{r}
+# Membuat scatterplot
+scatterplot <- plot_ly(data = kidney_stone, x = ~osmo, y = ~urea, mode = "markers",
+                       type = "scatter", color = ~target, colors = c("#FDB927", "#552583")) %>%
+  layout(xaxis = list(title = "Osmo", titlefont = list(size = 14)),
+         yaxis = list(title = "Urea", titlefont = list(size = 14)),
+         title = list(text = "Scatterplot", font = list(size = 16)))
+
+# Menampilkan scatterplot
+scatterplot
+```
+
+
+```{r}
+# 4. Boxplot
+plot_ly(data = kidney_stone, x = ~target, y = ~calc, type = "box",
+        boxpoints = "all", jitter = 0.3, marker = list(color = "maroon")) %>%
+  layout(xaxis = list(title = "Target"),
+         yaxis = list(title = "Calc"))
+```
+
+```{r}
+# Memilih subset kolom yang akan digunakan dalam correlation plot
+data_numeric <- kidney_stone[, c("gravity", "ph", "osmo", "cond", "urea", "calc")]
+
+# Menghitung matriks korelasi
+cor_matrix <- cor(data_numeric)
+
+# Konversi matriks korelasi menjadi data frame
+cor_df <- reshape2::melt(cor_matrix)
+
+# Membuat correlation plot dengan penambahan nilai confusion matrix
+cor_plot <- ggplot(data = cor_df, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "#FDB927", mid = "#FDB927", high = "#552583", midpoint = 0) +
+  geom_text(aes(label = round(value, 2)), color = "black") +  # Menambahkan nilai matriks kebingungan
+  labs(x = "Variable", y = "Variable", fill = "Correlation") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1),
+        plot.title = element_text(hjust = 0.5, size = 16))
+
+# Menambahkan judul dan memperbesar font di luar plot
+cor_plot <- cor_plot + ggtitle("Correlation Plot")
+
+# Menampilkan correlation plot
+print(cor_plot)
+
+```
+
+### KNN
+
+```{r}
+set.seed(1110)
+kidney_split = sort(sample(nrow(kidney_stone), nrow(kidney_stone)*0.8)) 
+data.train <- kidney_stone[kidney_split,]
+test <- kidney_stone[-kidney_split,]
+
+table(data.train$target)
+```
+
+```{r}
+class_0_indices <- which(data.train$target == 0)
+class_1_indices <- which(data.train$target == 1)
+sampled_class_0_indices <- sample(class_0_indices, length(class_1_indices))
+train <- rbind(data.train[class_1_indices, ], data.train[sampled_class_0_indices, ])
+table(train$target)
+
+```
+
+```{r}
+# Memilih hanya kolom "calc" untuk variabel prediktor
+train.X <- scale(train[, "calc"])
+test.X <- scale(test[, "calc"])
+```
+
+```{r}
+# Mengambil kolom "target" sebagai variabel respons
+train.Y <- train$target
+test.Y <- test$target
+```
+
+```{r}
+# Inisialisasi vektor kosong untuk menyimpan hasil akurasi
+accuracy <- c()
+
+# Melakukan iterasi untuk setiap nilai K
+for (i in 1:15){
+  knn.pred <- knn(train.X, test.X, train.Y, k = i)
+  accuracy[i] <- mean(test.Y == knn.pred)
+}
+```
+
+```{r}
+# Membuat dataframe untuk hasil akurasi
+accuracy_df <- data.frame(K = 1:15, Accuracy = accuracy)
+accuracy_df
+```
+
+```{r}
+# Mencari nilai K dengan akurasi tertinggi
+best_k <- accuracy_df$K[which.max(accuracy_df$Accuracy)]
+best_k
+```
+
+```{r}
+# Membuat plot akurasi
+plot <- ggplot(accuracy_df, aes(x = K, y = Accuracy)) +
+  geom_line() +
+  geom_point() +
+  geom_vline(xintercept = best_k, linetype = "dashed", color = "red") +
+  labs(x = "K", y = "Accuracy", title = "KNN Accuracy for Different K") +
+  theme_minimal()
+
+# Menampilkan plot
+print(plot)
+```
+
+```{r}
+# Melakukan prediksi dengan k=6
+knn.pred <- knn(train.X, test.X, train.Y, k = 10)
+
+# Membuat tabel kontingensi
+table(knn.pred, test.Y)
+```
+
+```{r}
+# Membuat dataframe dari hasil prediksi dan kelas sebenarnya
+results <- data.frame(knn.pred, test.Y)
+colnames(results) <- c("Prediction", "Actual")
+```
+
+```{r}
+# Membuat plot histogram
+plot_hist <- ggplot(results, aes(x = Actual, fill = Prediction)) +
+  geom_bar() +
+  labs(x = "Actual Class", y = "Count", fill = "Predicted Class") +
+  scale_fill_manual(values = c("#552583", "#FDB927"))  # Mengatur warna fill
+
+# Menampilkan plot histogram
+print(plot_hist)
+```
+
+```{r}
+# Membuat dataframe dari hasil prediksi dan variabel "calc"
+resultss <- data.frame(target = test.Y, calc = test$calc, prediction = knn.pred)
+
+# Jittering pada variabel "calc"
+resultss$calc_jittered <- jitter(resultss$calc)
+
+# Membuat plot scatter dengan jittering dan ukuran titik yang diperbesar
+plot_scatter <- ggplot(resultss, aes(x = target, y = calc_jittered, color = as.factor(prediction))) +
+  geom_point(position = position_jitter(width = 0.2, height = 0.02), size = 2.5) +
+  labs(x = "Target", y = "calc", color = "Prediction") +
+  scale_color_manual(values = c("#FDB927", "#552583")) +  # Mengatur warna titik
+  theme(axis.text = element_text(size = 12),  # Ukuran teks pada label sumbu
+        axis.title = element_text(size = 14),  # Ukuran teks pada judul sumbu
+        plot.title = element_text(size = 16)) +  # Ukuran teks pada judul plot
+  labs(title = "Scatter Plot Hasil Prediksi Dengan Metode KNN")
+
+# Menampilkan plot scatter
+print(plot_scatter)
+```
+
+
+```{r}
+# Menghitung akurasi dan test error
+accuracy.knn <- round(mean(test.Y == knn.pred), digits = 2) * 100
+print(paste('Accuracy is', accuracy.knn, "%"))
+print(paste('Test error is', 100 - accuracy.knn, "%"))
+```
+
+### Confusion Matrix
+```{r}
+# Menghitung confusion matrix secara manual
+confusion_matrix <- table(Actual = test.Y, Predicted = knn.pred)
+
+# Menampilkan confusion matrix
+print(confusion_matrix)
+
+# Menghitung akurasi dan error rate
+accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
+error_rate <- 1 - accuracy
+
+# Menampilkan akurasi dan error rate
+print(paste("Accuracy:", accuracy))
+print(paste("Error Rate:", error_rate))
+```
+
+```{r}
+# Mengubah confusion matrix menjadi dataframe
+confusion_df <- as.data.frame.matrix(confusion_matrix)
+
+# Menambahkan kolom dan baris untuk label
+confusion_df$Class <- rownames(confusion_df)
+confusion_df <- gather(confusion_df, "Predicted", "Count", -Class)
+
+# Mengubah tipe data menjadi faktor untuk mengurutkan label pada sumbu x dan y
+confusion_df$Predicted <- factor(confusion_df$Predicted, levels = colnames(confusion_matrix))
+confusion_df$Class <- factor(confusion_df$Class, levels = rownames(confusion_matrix))
+
+# Membuat plot confusion matrix
+plot_confusion <- ggplot(confusion_df, aes(x = Predicted, y = Class, fill = Count)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = Count), color = "red", size = 10, show.legend = FALSE) +
+  scale_fill_gradient(low = "#FDB927", high = "#552583") +
+  labs(x = "Predicted Class", y = "Actual Class") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.title = element_text(size = 14)) +
+  ggtitle("Confusion Matrix") +
+  theme(plot.title = element_text(hjust = 0.5, size = 16, face = "bold"))
+
+# Menampilkan plot
+print(plot_confusion)
+```
+
+
+### ROC
+```{r}
+train.Y <- as.factor(train$target)
+test.Y <- as.factor(test$target)
+
+knn.probs <- attr(knn(train.X, test.X, train.Y, k = 255, prob = TRUE), "prob")
+
+roc_obj <- roc(test.Y, knn.probs)
+```
+
+```{r}
+plot(roc_obj, col = "#377EB8", main = "ROC Curve for KNN",
+     xlab = "False Positive Rate", ylab = "True Positive Rate",
+     print.auc = TRUE, auc.polygon = TRUE, max.auc.polygon = TRUE)
+
+abline(a = 0, b = 1, col = "gray", lty = 2)
+
+legend("bottomright", legend = paste("AUC =", round(roc_obj$auc, 2)), cex = 0.8, bg = "white")
+```
+

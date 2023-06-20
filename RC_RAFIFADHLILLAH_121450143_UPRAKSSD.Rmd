@@ -1,0 +1,221 @@
+---
+title: "Soal Ujian Praktikum Statistika Sains Data Paket 3"
+author: "Sains Data Institut Teknologi Sumatera"
+date: "2023-05-10"
+output:
+  html_document:
+    df_print: paged
+---
+
+#### Nama : Rafi Fadhlillah
+#### NIM : 121450143
+#### Kelas : RC
+
+A. Eksplorasi Data Analisis, Klasifikasi dan Resampling [Jumlah Poin: 35]
+
+Silahkan Unduh dataset di bawah ini:
+https://bit.ly/datasetra
+
+
+1. Panggil Package berikut:
+```{r}
+library(tidyverse)
+library(mlr3verse)
+library(mlr3tuning)
+library(ggplot2)
+library(dplyr)
+library(gridExtra)
+```
+
+2. Set direktori dan lakukan mutate terhadap dataset agar menjadi numerik
+```{r}
+setwd("C:/Users/rafif/Downloads")
+data3 <- read.csv("riceclass.csv",stringsAsFactors = TRUE)
+data3 <- data3 %>% mutate(across(where(is.integer),as.numeric))
+```
+
+3. Cek dataset dengan Glimpse
+```{r}
+glimpse(data3)
+```
+
+4. Ubah beberapa variabel menjadi factor
+```{r}
+data3$Class <- as.factor(data3$Class)
+
+```
+
+5. Buatlah barplot dengan ggplot
+```{r}
+p1 <- ggplot(data = data3) +geom_line(mapping = aes(x = AspectRation, y = Area))
+p2 <-ggplot(data = data3) +geom_line(mapping = aes(x = Extent, y=Perimeter ))
+p3 <-ggplot(data = data3) +geom_line(mapping = aes(x = Roundness,y=Extent)) 
+p4 <-ggplot(data = data3) +geom_line(mapping = aes(x = MajorAxisLength, y=MinorAxisLength)) 
+grid.arrange(p1,p2,p3,p4, ncol= 2)
+```
+
+6. Hapus nilai NA
+```{r}
+data3 <- data3 %>% na.omit()
+```
+
+
+7. Buatlah task klasifikasi
+```{r}
+task_data3 = TaskClassif$new(id="task",
+                             backend = data3,
+                             target = "Class",positive ="1")
+```
+
+8. Buatlah Learner 1 dan 2 : Logistic Regression dan LDA
+```{r}
+learner1 = lrn("classif.log_reg", predict_type = "prob")
+learner1
+```
+
+```{r}
+learner2 = lrn("classif.lda", predict_type = "prob")
+learner2
+```
+9. Lakukan resampling Crossvalidation, dengan folds bebas (misal, 3 atau 4)
+
+```{r}
+resampling = rsmp("cv", folds = 3)
+rr = resample(task = task_data3, learner = learner1, resampling = resampling)
+rr$aggregate(msr("classif.acc"))
+```
+```{r}
+resampling_1 = rsmp("cv", folds=3)
+rr1 = resample(task = task_data3, learner = learner2, resampling = resampling_1)
+rr1$aggregate(msr("classif.acc"))
+```
+
+B. Tree-based(Decision Tree) [Jumlah Poin : 30]
+
+Pada pertanyaan ini kita akan menggunakan model randomforest untuk klasifikasi. berikut package yang digunakan
+
+```{r}
+# install.packages('rpart')
+library(randomForest)
+library(ROSE)
+```
+
+```{r}
+#MODELING
+#Splitting the dataset into the Training set and Test set
+  #Stratified sample
+data_ones <- data3[which(data3$Class == 1), ]
+data_zeros <- data3[which(data3$Class == 0), ]
+
+    #Train data
+set.seed(123)
+train_ones_rows <- sample(1:nrow(data_ones), 0.8*nrow(data_ones))
+train_zeros_rows <- sample(1:nrow(data_zeros), 0.8*nrow(data_ones))
+train_ones <- data_ones[train_ones_rows, ]  
+train_zeros <- data_zeros[train_zeros_rows, ]
+training_set <- rbind(train_ones, train_zeros)
+
+table(training_set$Class)
+```
+
+**Analisis : Code diatas membagi menjadi data training dan data testing kemudian mengoutputkan hasil training, hasilnya adalah untuk class 0 ada sebanyak 125 dan class 1 sebanyak 125 artinya untuk data training hasilnya seimbang antara class 0 dan class 1, atau jika kita asumsikan dengan rice maka jenis rice(0) berjumlah  125 dan jenis rice(1) berjumlah 125 dengan kata lain pada data training menghasilkan output yang seimbang**
+
+```{r}
+#Test Data
+test_ones <- data_ones[-train_ones_rows, ]
+test_zeros <- data_zeros[-train_zeros_rows, ]
+test_set <- rbind(test_ones, test_zeros)
+
+table(test_set$Class)
+```
+
+**Analisis : Output diatas menampilkan hasil dari data testing, hasilnya adalah untuk class 0 ada sebanyak 42 sedangkan class 1 sebanyak 32 atau jika diasumsikan dengan rice maka jenis rice(0) berjumlah 42 dan jenis rice(1) berjumlah 32 pada data testing**
+
+```{r}
+#Random Forest
+
+rf = randomForest(x = training_set[-12],
+                  y = training_set$Class,
+                  ntree = 10)
+```
+
+```{r}
+y_pred = predict(rf, 
+                 type = 'class', 
+                 newdata = test_set[-12])
+```
+
+
+```{r}
+ #Making the confusion matrix
+cm_rf = table(test_set[, 12], y_pred)
+cm_rf
+```
+
+**Analisis : Dari hasil confusion matrix diatas diketahui bahwa prediksi untuk rice dengan class 0 sebanyak 42 dan sesuai dengan data sebenarnya. Hasil prediksi untuk rice dengan class 1 sebanyak 32 dan sesuai dengan data sebenarnya oleh karena itu nilai False Positif(FP) dan False Negatif(FN) jumlahnya 0. Dengan kata lain hasil prediksi= data sebenarnya(prediksinya benar semua tidak ada yang salah)**
+
+```{r}
+#Accuracy
+accuracy_rf = (cm_rf[1,1] + cm_rf[2,2])/
+  (cm_rf[1,1] + cm_rf[2,2] + cm_rf[2,1] + cm_rf[1,2])
+accuracy_rf
+```
+**Analisis : Hasil confusion matrix diatas terbukti saat tes akurasi yang menunjukan 1 atau akurasinya 100%(sangat akurat)**
+```{r}
+#ROC curve
+library(ROSE)
+roc.curve(test_set$Class, y_pred)
+```
+
+Jelaskan setiap baris kode yang sudah disajikan di atas, dan berikan kesimpulan anda terhadap evaluasi akurasi dengan ROC Curve.
+
+**Jawab : Plot diatas merupakan plot ROC yang menghasilkan nilai AUC = 1 artinya jika dievaluasi menggunakan ROC hasilnya sudah sangat baik karena AUC = 1 hal ini terlihat juga dari grafik ROC berada diatas garis diagonal dan membentuk sudut 90 derajat artinya hasil evaluasinya sangat baik** 
+
+(Hint, periksalah apakah akurasi lebih baik dari ROC, atau sebaliknya, maka pengukuran yang digunakan berdasarkan evaluasi yang paling tinggi akurasinya)
+
+**Jawab : Hasil evaluasi dari akurasi yang ditunjukan oleh confusion matrix = ROC dibuktikan dengan hasil akurasi confusion matrix = 1 dan nilai AUC pada ROC = 1, dengan kata lain akurasi yang dihasilkan Confusion matrix = ROC**
+
+
+C. Linear Model Selection [Jumlah Poin: 35]
+
+Pada sesi ini anda di minta untuk melengkapi kode dan menjelaskan hasil dari ridge dan lasso, mana fitur importance yang paling mempengaruhi dan berapa nilai lambda keduanya?
+
+```{r}
+library(glmnet)
+```
+
+
+```{r}
+set.seed(1)
+trainid <- sample(1:nrow(data3), nrow(data3)/2)
+train <- data3[trainid,]
+test <- data3[-trainid,]
+xmat.train <- model.matrix(Class~., data=train)[,-1]
+xmat.test <- model.matrix(Class~., data=test)[,-1]
+str(trainid)
+```
+```{r}
+fit.ridge <- cv.glmnet(xmat.train, train$Class, alpha=0, family="binomial")
+(lambda <- fit.ridge$lambda.min) # optimal lambda
+```
+
+**Analisis : Nilai lambda optimal yang diperoleh dari ridge sebesar 0.0464982**
+
+```{r}
+predict(fit.ridge, s=lambda, type="coefficients")
+```
+
+**Analisis : Hasil prediksi dari ridge diatas menunjukkan bahwa variabel Extent merupakan variabel yang paling mempengaruhi class dengan nilai tertinggi yakni sebesar 0.7580315300 kemudian untuk variabel kedua yang paling mempengaruhi class berdasarkan ridge adalah variabel AspectRation sebesar 0.2360395154**
+
+```{r}
+fit.lasso <- cv.glmnet(xmat.train, train$Class, alpha=1, family="binomial")
+(lambda <- fit.lasso$lambda.min) # optimal lambda
+```
+
+**Analisis : Nilai lambda optimal yang diperoleh dari lasso sebesar 0.006439473**
+
+```{r}
+predict(fit.lasso, s=lambda, type="coefficients")
+```
+
+**Analisis : Hasil prediksi dari lasso diatas menunjukkan bahwa tidak ada variabel yang mempengaruhi class karena hasilnya negatif** 

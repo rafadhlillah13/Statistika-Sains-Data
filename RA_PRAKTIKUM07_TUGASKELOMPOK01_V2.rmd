@@ -1,0 +1,94 @@
+---
+title: "Tugas Individu Prak SSD Modul 7"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r}
+library(ISLR)
+library(gam)
+library(interp)
+library(caTools)
+library(dplyr)
+library(ISLR)
+library(leaps)
+library(mgcv)
+library(skimr)
+```
+```{r}
+data(College)
+skim(College)
+```
+### 1. Pisahkan data menjadi set pelatihan (training) dan set tes (test). Dengan menggunakan out of statetuition seagai respons dan variabel lain sebagai prediktor, lakukan seleksi forward selection pada set pelatihan untuk mengindentifikasi model yang paling baik yang akan hanya menggunakan sebagian dari prediktor
+```{r}
+# Split the data training and testing sets
+set.seed(123)
+train <- sample(nrow(College), nrow(College)*0.7)
+College_train <- College[train,]
+College_test <- College[-train,]
+```
+```{r}
+# Create the response and predictor variables
+response <- College_train$Outstate
+predictors <- College_train[,2:10]
+
+# Combine the response and predictor variables into a single data frame
+data <- data.frame(response, predictors)
+
+# Perform forward selection using the leaps library
+model <- regsubsets(response ~ ., data=data, nvmax=10, method="forward")
+
+# Identify the best model using the summary function
+summary(model)
+```
+```{r}
+# Select the model with the lowest BIC value
+best_model <- which.min(summary(model)$bic)
+best_model
+```
+```{r}
+# Extract the names of the selected predictors
+selected_predictors <- names(coef(model, best_model)[-1])
+selected_predictors
+```
+### 2. sesuaikan GAM pada data pelatihan, menggunakan out of state tuition sebagai respon dan fitur yang dipilih pada langkah sebelumnya sebagai para prediktor. Plot hasilnya dan jelaskan temuan anda
+```{r}
+# Fit a GAM model using the selected predictors
+gam_model <- gam(Outstate ~ s(Room.Board) + s(Enroll) + s(PhD) + s(S.F.Ratio), data=College_train)
+
+# Summarize the model
+summary(gam_model)
+```
+```{r}
+# Plot the GAM model
+par(mfrow=c(2,2))
+plot(gam_model, col="blue", shade=TRUE)
+```
+```{r}
+gam_model2=lm(Outstate ~ ns(Room.Board) + ns(Enroll) + ns(PhD) + ns(S.F.Ratio), data=College_train)
+plot.Gam(gam_model2 , se=TRUE , col ="red")
+```
+
+### 3. Mengevaluasi model yang diperoleh pada set tes, dan menjelaskan hasil yang diperoleh
+```{r}
+# Evaluate the model on the test set
+test_preds <- predict(gam_model, newdata=College_test)
+
+# Calculate the root mean squared error
+rmse <- sqrt(mean((College_test$Outstate - test_preds)^2))
+rmse
+```
+
+### 4. Untuk variabel mana, jika ada apakah ada bukti non linier hubungannya dengan variabel respon?
+Terdapat beberapa variabel prediktor yang dianggap memiliki hubungan nonlinear dengan variabel respon (Outstate) berdasarkan plot dari model GAM, yaitu:
+
+- Room.Board
+- Enroll
+- PhD
+- S.F.Ratio
+
+Hal ini dapat dilihat dari kurva yang dihasilkan oleh plot model GAM (pada soal no 2) yang tidak selalu berbentuk linear, melainkan terdapat variasi yang lebih kompleks dan fleksibel. Dalam plot, kurva yang dihasilkan ditunjukkan oleh garis biru dengan bayangan abu-abu yang mengelilinginya.
+
+Selain itu, pada soal 1, metode forward selection digunakan untuk memilih prediktor terbaik. Metode ini mengasumsikan bahwa hubungan antara prediktor dan variabel respon adalah linear, sehingga mungkin tidak terdeteksi secara akurat hubungan nonlinier antara variabel prediktor dan variabel respon. Oleh karena itu, penggunaan model GAM pada soal 2 memberikan alternatif yang lebih fleksibel untuk menangkap hubungan nonlinier yang mungkin ada antara prediktor dan variabel respon.
+

@@ -1,0 +1,512 @@
+---
+title: "TugasKelompokSSD3"
+output: html_document
+date: "2023-03-13"
+---
+
+## Kelompok 1 RA
+1. Taufiqurrahmansyah Effendi _120450051 \
+2. Hanna Sajidah_121450060 \
+3. Patricia Gaby Rahmawati Tamba_121450099 \
+4. Rafi Fadhlillah_121450143_(KELAS RC) \
+5. Andini Nur Izzati_121450147 \
+6. Leonard Andreas Napitupulu_121450153
+
+# About Dataset
+Link dataset : https://archive.ics.uci.edu/ml/datasets/Student%20Performance
+
+## IMPORT LIBRARY
+```{r}
+library(tidyverse)
+library(mlr3tuning)
+library(mlr3verse)
+library(smotefamily)
+library(ggpubr)
+library(kknn)
+library(skimr)
+library(ROCR)
+library(DataExplorer)
+```
+
+# 1.Definisikan Data
+Data ini merupakan pendekatan pencapaian siswa dalam pendidikan menengah di dua sekolah Portugis. Atribut data meliputi nilai siswa, demografi, fitur sosial dan terkait sekolah) dan dikumpulkan dengan menggunakan laporan sekolah dan kuesioner. Dua set data disediakan mengenai kinerja dalam dua mata pelajaran yang berbeda: Matematika (mat) dan bahasa Portugis (por). Pada tugas kali ini kami mengambil data Matematika(student-mat.csv)
+
+## Import Dataset
+```{r}
+student <- read.csv("C:/Users/rafif/Downloads/student-mat.csv",stringsAsFactors = TRUE)
+student <- student %>% mutate(across(where(is.integer),as.numeric))
+student$higher <- as.factor(student$higher)
+glimpse(student)
+```
+# Data Cleaning
+```{r}
+#menghitung jumlah data kosong
+sum(is.na(student))
+```
+
+```{r}
+# Periksa apakah ada nilai duplikat di dalam dataset
+sum(duplicated(student))
+```
+
+```{r}
+skim(student)
+```
+
+```{r}
+plot_intro(data = student,
+           geom_label_args = list(size=2.5))
+```
+
+**Analisis : Plot diatas menunjukkan bahwa All Missing Columns dan Missing Observation sebesar 0% serta Complate Rows mencapai 100% artinya tidak ada nilai missing dalam dataset ini, maka dapat langsung ke proses selanjutnya.**
+
+# Definisikan Objek Task Dan Learner
+```{r}
+task_student = TaskClassif$new(id="student",
+backend = student,
+target = "higher",positive ="yes")
+```
+
+**Analisis :  Code diatas bertujuan untuk melakukan klasifikasi pada dataset student performance dengan variabel target "higher" yang memiliki nilai positif "yes". Tujuan dari klasifikasi ini untuk memprediksi kemungkinan siswa yang ingin melanjutkan pendidikan ke jenjang yang lebih tinggi.**
+
+## Learner
+```{r}
+learner1 = lrn("classif.log_reg", predict_type = "prob")
+learner1
+```
+
+```{r}
+learner2 = lrn("classif.lda", predict_type = "prob")
+learner2
+```
+
+**Analisis : Pada code di atas, terdapat dua objek learner yaitu learner1 dan learner2. Objek-objek ini menggunakan package mlr3 yang digunakan untuk membangun model machine learning. Kedua objek learner1 dan learner2 ini dapat digunakan untuk membangun model dan memprediksi kelas pada data student performance dengan menggunakan algoritma logistic regression dan LDA.**
+
+```{r}
+msr_tbl = as.data.table(mlr_measures)
+msr_tbl[1:5, .(key, label, task_type)]
+```
+
+```{r}
+msr_tbl[1:5, .(key, packages, predict_type, task_properties)]
+```
+
+```{r}
+as.data.table(lrn("classif.log_reg")$param_set)
+```
+
+```{r}
+as.data.table(lrn("classif.lda")$param_set)
+```
+
+**Analisis : Pada code di atas, terdapat empat blok kode yang berbeda untuk melakukan analisis. Kode-kode tersebut dapat membantu analisis dalam memilih metrik evaluasi yang tepat dan memahami parameter-parameter yang dapat dimasukkan dalam model machine learning. Selain itu, informasi tersebut dapat membantu dalam penyesuaian parameter algoritma machine learning untuk meningkatkan performa model. **
+
+## Pengukuran
+```{r}
+resampling = rsmp("holdout")
+rr = resample(task = task_student, learner = learner1, resampling = resampling)
+```
+
+```{r}
+rr$aggregate(msr("classif.acc"))
+```
+
+```{r}
+resampling = rsmp("holdout")
+rr = resample(task = task_student, learner = learner2, resampling = resampling)
+```
+
+```{r}
+rr$aggregate(msr("classif.acc"))
+```
+
+**Analisis : Code diatas merupakan proses resampling data dengan menggunakan metode holdout. Metode holdout digunakan untuk membagi dataset menjadi dua subset, yaitu training set dan testing set. Training set digunakan untuk melatih model dan testing set digunakan untuk menguji performa model. kemudian kita dapat mengevaluasi performa model machine learning dengan menggunakan metrik evaluasi classif.acc. Kita juga dapat menyesuaikan model dengan metode resampling yang berbeda atau memilih model machine learning lain untuk meningkatkan performa model. **
+
+## Benchmark
+```{r}
+lrns = c(learner1, lrn("classif.featureless"))
+d = benchmark_grid(task = task_student, learners = lrns, resampling = resampling)
+bmr = benchmark(design = d)
+```
+
+```{r}
+acc = bmr$aggregate(msr("classif.acc"))
+acc[, .(task_id, learner_id, classif.acc)]
+```
+
+```{r}
+lrns = c(learner2, lrn("classif.featureless"))
+d = benchmark_grid(task = task_student, learners = lrns, resampling = resampling)
+bmr = benchmark(design = d)
+```
+
+```{r}
+acc = bmr$aggregate(msr("classif.acc"))
+acc[, .(task_id, learner_id, classif.acc)]
+```
+
+**Analisis : Code di atas digunakan untuk melakukan evaluasi performa (performance evaluation) terhadap dua buah learner, yaitu classif.log_reg dan classif.featureless pada klasifikasi student. Pengukuran dilakukan dengan memanfaatkan metrik akurasi (accuracy) sebagai acuan untuk mengevaluasi performa model. Dapat disimpulkan bahwa berdasarkan metrik akurasi, learner classif.featureless memiliki performa yang lebih baik dibandingkan dengan classif.log_reg dan classif.lda pada klasifikasi student**
+
+# Strategi Resampling
+## Query
+```{r}
+as.data.table(mlr_resamplings)
+```
+
+**Analisis : Pada kolom key adalah nama-nama dari tipe-tipe pembagian data.  Pada tutorial ini kita membagi data menjadi dua bagian yaitu data training dan data testing dengan proporsi data training dan data testing. Pembagian ini bisa dilakukan dengan menggunakan pembagian data "holdout".**
+
+## Construction
+```{r}
+resampling = rsmp("holdout")
+print(resampling)
+```
+
+```{r}
+resampling = rsmp("holdout", ratio = 0.8)
+```
+
+```{r}
+resampling$param_set$values = list(ratio = 0.5)
+```
+
+```{r}
+resampling = rsmp("cv", folds = 10)
+```
+
+**Analisis : Code tersebut berhubungan dengan konstruksi objek resampling, yaitu objek yang digunakan untuk melakukan pengambilan sampel pada dataset untuk evaluasi model dalam konteks validasi silang (cross-validation).**
+
+## Instantiation
+```{r}
+resampling = rsmp("holdout", ratio = 0.8)
+resampling$instantiate(task_student)
+train_ids = resampling$train_set(1)
+test_ids = resampling$test_set(1)
+str(train_ids)
+```
+
+```{r}
+str(test_ids)
+```
+
+**Analisis : Penggunaan fungsi rsmp dan method yang digunakan adalah holdout dengan parameter ratio=0.8 untuk membagi data menjadi 80% data train dan 20% data test. Diambil data train dan test pada iterasi ke-1, sehingga variabel train_ids dan test_ids berisi vektor integer yang merepresentasikan indeks data yang digunakan pada data train dan data test. Hal ini akan memudahkan penggunaan objek resampling pada proses training dan testing model.**
+
+## Eksekusi
+```{r}
+resampling = rsmp("cv", folds = 4)
+rr = resample(task_student, learner1, resampling)
+```
+
+```{r}
+print(rr)
+```
+
+```{r}
+as.data.table(rr)
+```
+
+```{r}
+acc = rr$score(msr("classif.acc"))
+acc[, .(iteration, classif.acc)]
+```
+
+**Analisis : Nilai akurasi model dari masing-masing iterasi berbeda-beda, yang menunjukkan ketidakpastian dalam hasil prediksi dari model. Oleh karena itu, hasil yang diambil adalah rata-rata dari beberapa iterasi untuk mendapatkan estimasi yang lebih stabil.**
+
+```{r}
+rr$aggregate(msr("classif.acc"))
+```
+
+**Analisis :  Akurasi rata-rata dari model yang dibuat dengan learner1 pada data student adalah sebesar 0.8988353.**
+
+```{r}
+rr$aggregate(msr("classif.acc", average = "micro"))
+```
+
+**Analisis : Menghitung rata-rata akurasi dari seluruh kelas dengan menggunakan metode micro-average. Hasilnya adalah nilai akurasi rata-rata dengan metode micro-average sebesar 0.8987342.**
+
+## Inspeksi
+```{r}
+rrdt = as.data.table(rr)
+rrdt
+```
+
+```{r}
+rrdt$prediction
+```
+
+```{r}
+all.equal(rrdt$prediction, rr$predictions())
+```
+
+```{r}
+pred = rr$prediction()
+pred
+```
+
+```{r}
+pred$score(msr("classif.acc"))
+```
+
+**Analisis : Skor akurasi klasifikasi, yang menunjukkan seberapa baik model klasifikasi dapat memprediksi kelas yang benar pada data yang diuji. Skor akurasi dalam kasus ini adalah sebesar 0.8987342, yang berarti model dapat memprediksi kelas dengan benar untuk sekitar 89,87% dari data yang diuji.**
+
+## Resampling with Stratification and Grouping
+
+```{r}
+prop.table(table(task_student$data(cols = "higher")))
+```
+
+```{r}
+r = rsmp("cv", folds = 3)
+r$instantiate(task_student)
+prop.table(table(task_student$data(rows = r$test_set(1), cols = "higher")))
+```
+
+```{r}
+prop.table(table(task_student$data(rows = r$test_set(2), cols = "higher")))
+```
+
+```{r}
+prop.table(table(task_student$data(rows = r$test_set(3), cols = "higher")))
+```
+
+**Analisis : Melakukan resampling dengan stratifikasi dan pengelompokan, akan memastikan bahwa distribusi variabel target yang digunakan untuk evaluasi model pada setiap iterasi resampling tidak terlalu berbeda dengan distribusi variabel target pada keseluruhan data. Hal ini dapat membantu meningkatkan validitas dan interpretasi hasil evaluasi model yang dihasilkan.**
+
+### Menggunakan Stratum:
+```{r}
+task_student$col_roles$stratum = "higher"
+r = rsmp("cv", folds = 3)
+r$instantiate(task_student)
+prop.table(table(task_student$data(rows = r$test_set(1), cols = "higher")))
+```
+
+```{r}
+prop.table(table(task_student$data(rows = r$test_set(2), cols = "higher")))
+```
+
+```{r}
+prop.table(table(task_student$data(rows = r$test_set(3), cols = "higher")))
+```
+
+**Analisis : Menggunakan stratum pada resampling untuk memastikan proporsi kelas yang sama dalam setiap lipatan (fold) pada cross-validation. Pada bagian pertama, proporsi kelas "higher" dihitung untuk keseluruhan dataset. Pada bagian kedua, ketika stratum digunakan dalam cross-validation, proporsi kelas "higher" dihitung untuk setiap lipatan (fold) sehingga memastikan bahwa proporsi kelas yang sama dipertahankan di setiap lipatan. Insight yang dapat diambil adalah penggunaan stratum pada resampling sangat penting terutama ketika proporsi kelas yang tidak seimbang dalam dataset dan harus dipertahankan dalam setiap lipatan pada cross-validation.**
+
+## Resampling bootstrap
+```{r}
+resp = rsmp("bootstrap")
+resp$instantiate(task_student)
+train_b = resp$train_set(1)
+test_b = resp$test_set(1)
+str(train_b)
+```
+
+```{r}
+str(test_b)
+```
+
+```{r}
+reg_log_b <- resample(task = task_student, learner = learner1, resampling = resampling)
+```
+
+```{r}
+# akurasi regresi logistik dengan bootstrap
+reg_log_b$aggregate(msr("classif.acc"))
+```
+
+```{r}
+# Rata rata akurasi regresi logistik dengan bootstrap
+reg_log_b$aggregate(msr("classif.acc", average = "micro"))
+```
+
+```{r}
+acc = reg_log_b$score(msr("classif.acc", average = "micro"))
+acc[, .(iteration, classif.acc)]
+```
+
+**Analisis : Hasil akurasi tersebut menunjukkan akurasi klasifikasi pada setiap iterasi dalam resampling bootstrap. Dalam kasus ini, akurasi dihitung dengan menggunakan metrik "classif.acc" dan dihitung dengan rata-rata mikro.Dari hasil tersebut, kita dapat melihat bahwa akurasi pada tiap iterasi memiliki variasi, yaitu antara 85.86% hingga 90.91%. Hal ini menunjukkan bahwa model yang dihasilkan pada setiap iterasi dapat memiliki performa yang berbeda-beda.**
+
+**Namun, secara keseluruhan, rata-rata akurasi dari model regresi logistik dengan resampling bootstrap tersebut adalah sebesar 87.85%. Akurasi ini dapat digunakan sebagai ukuran performa umum dari model tersebut dalam melakukan klasifikasi pada data yang belum pernah dilihat sebelumnya.**
+
+## Plotting Resampling
+```{r}
+r = rsmp("cv", folds = 30)
+rr = resample(task_student, learner1, r)
+```
+
+```{r}
+# histogram
+autoplot(rr, type = "histogram", bins =30)
+```
+
+**Analisis : Dapat dilihat dari plot diatas, terdapat distribusi performa model yang cukup variatif, dengan sebaran yang relatif merata. Hal ini menunjukkan bahwa performa model pada beberapa iterasi mungkin kurang baik, sedangkan pada iterasi yang lain performa model dapat sangat baik. Distribusi yang variatif seperti ini dapat disebabkan oleh banyak faktor, seperti variasi data, kecocokan model terhadap data, atau bahkan faktor kebetulan.**
+
+```{r}
+# boxplot
+autoplot(rr, type = "boxplot", bins =30)
+```
+
+**Analisis : Plot di atas adalah boxplot dari akurasi model yang dihasilkan melalui resampling. Informasi yang dapat diambil dari plot tersebut adalah distribusi akurasi dari model secara keseluruhan, termasuk nilai minimum, quartile, median, dan maksimum. Selain itu, plot boxplot juga memperlihatkan adanya outlier (nilai yang jauh dari distribusi data yang lain). Plot ini dapat membantu kita dalam mengidentifikasi performa model dan mengevaluasi bagaimana variabilitas akurasi pada model ketika menggunakan teknik resampling yang berbeda.**
+
+```{r}
+#Prediction Plot
+task = task_student$select(c("age","studytime"))
+resampling = rsmp("cv", folds = 3)
+object = resample(task, learner1, resampling, store_models = TRUE)
+```
+
+```{r}
+autoplot(object, type = "prediction")
+```
+
+**Analisis : Plot diatas adalah visualisasi prediksi dari model yang dilatih pada dataset. Plot menunjukkan perbandingan antara nilai prediksi dan nilai yang sebenarnya pada setiap pengamatan pada data testing. Nilai diagonal pada plot menunjukkan pengamatan dimana nilai prediksi sama dengan nilai yang sebenarnya. Pada umumnya, semakin dekat titik prediksi dengan diagonal, semakin baik kinerja model. Plot juga memberikan informasi tentang seberapa jauh nilai prediksi dari nilai yang sebenarnya. Semakin jauh dari diagonal, semakin besar kesalahan prediksi.**
+
+## Confusion Matrix-Based Measures
+```{r}
+mlr3measures::confusion_matrix(truth = pred$truth,
+  response = pred$response, positive = task_student$yes)
+```
+
+**Analisis : Berdasarkan nilai pengukuran kinerja, model memiliki akurasi sebesar 0.8987 atau sekitar 90%, yang artinya sekitar 10% prediksi model salah. F1-score yang dihasilkan cukup tinggi, yaitu sebesar 0.9458. Nilai false positive rate (fpr) yang cukup tinggi sebesar 0.7 menunjukkan bahwa model cenderung memprediksi banyak siswa memiliki keinginan melanjutkan pendidikan tinggi. Nilai true positive rate (tpr) yang cukup tinggi sebesar 0.9307 menunjukkan bahwa model cukup baik dalam memprediksi siswa yang memiliki keinginan melanjutkan pendidikan tinggi. Note : nilai diatas selalu berbeda beda ketika di knit namun untuk hasil biasanya tidak berbeda jauh.**
+
+```{r}
+pred$set_threshold(0.99)
+mlr3measures::confusion_matrix(pred$truth, pred$response, task_student$yes)
+```
+
+**Analisis : Dapat dilihat bahwa performa model tidak mengalami perubahan, sehingga dapat disimpulkan bahwa model cukup stabil dalam memprediksi kelas target. Hal ini dapat dilihat dari nilai akurasi yang masih sama, yaitu 0,8987, serta nilai lainnya seperti nilai F1-score dan nilai positive predictive value (PPV) yang cukup tinggi. Namun demikian, nilai dari beberapa metrik evaluasi seperti false positive rate (FPR) dan true negative rate (TNR) masih perlu diperhatikan lebih lanjut. Note : nilai diatas selalu berbeda beda ketika di knit namun untuk hasil biasanya tidak berbeda jauh.**
+
+```{r}
+pred$set_threshold(0.01)
+mlr3measures::confusion_matrix(pred$truth, pred$response, task_student$yes)
+```
+
+**Analisis : dengan menurunkan threshold dari nilai default (0.5) menjadi 0.01, diperoleh akurasi sebesar 0.9038 yang meningkat dari akurasi sebelumnya (0.8987) pada nilai threshold default. Dapat disimpulkan bahwa dengan menurunkan nilai threshold, model dapat mengklasifikasikan lebih banyak data sebagai "yes" yang sesuai dengan kelas yang diinginkan. Namun, perlu diperhatikan bahwa peningkatan akurasi ini juga diikuti oleh penurunan spesifisitas dan peningkatan false positive rate (FPR), sehingga perlu dipertimbangkan kembali apakah nilai threshold yang baru ini cocok untuk kebutuhan aplikasi yang diinginkan atau tidak. Note : nilai diatas selalu berbeda beda ketika di knit namun untuk hasil biasanya tidak berbeda jauh.**
+
+```{r}
+thresholds = sort(pred$prob[,1])
+
+rocvals = data.table::rbindlist(lapply(thresholds, function(t) {
+  pred$set_threshold(t)
+  data.frame(
+    threshold = t,
+    FPR = pred$score(msr("classif.fpr")),
+    TPR = pred$score(msr("classif.tpr"))
+  )
+}))
+
+head(rocvals)
+```
+
+
+```{r}
+# membuat plot kurva ROC
+ggplot(data = rocvals, aes(x = FPR, y = TPR)) +
+  geom_line(color = "red", size = 1) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "blue", size = 1) +
+  xlab("False Positive Rate") +
+  ylab("True Positive Rate") +
+  ggtitle("ROC Curve") +
+  # menambahkan ukuran plot
+  theme(plot.title = element_text(hjust = 0.5)) +
+  labs(width = 8, height = 6) +
+  # menambahkan warna latar belakang plot
+  theme(plot.background = element_rect(fill = "white", color = "black")) +
+  # menambahkan warna pada sumbu
+  theme(axis.line = element_line(color = "black")) +
+  # menambahkan font pada label dan judul plot
+  theme(text = element_text(size=14, family="Arial")) +
+  # menambahkan gridline pada sumbu
+  theme(panel.grid.major = element_line(color = "grey", linetype = "dashed")) +
+  # menambahkan warna pada garis kurva ROC
+  scale_color_manual(values = c("red")) +
+  # menambahkan legend pada plot
+  guides(color = guide_legend(title = "Threshold", ncol = 1))
+```
+
+**Analisis : Pada plot tersebut, sumbu x menunjukkan false positive rate (FPR) sedangkan sumbu y menunjukkan true positive rate (TPR). Garis biru putus-putus menunjukkan kondisi dimana model mengklasifikasikan data secara acak, sedangkan garis merah menunjukkan performa model saat ini. Semakin dekat garis merah ke sudut kiri atas, maka semakin baik performa model karena TPR tinggi sedangkan FPR rendah. Dari plot tersebut, terlihat bahwa performa model cukup baik karena garis merah cenderung ke sudut kiri atas.**
+
+
+```{r}
+standardize <- po("scale")
+# Jika dup_size=1, jumlah amatan kelas minoritas
+#bertambah sebanyak
+#1*(jumlah amatan awal)+jumlah amatan awal
+smote <- po("smote",dup_size=1)
+```
+
+```{r}
+standardize$train(list(task_student))[[1]]$data() %>% glimpse
+```
+
+```{r}
+reglog <- GraphLearner$new(standardize %>>% smote %>>% lrn("classif.log_reg"))
+reglog
+```
+
+```{r}
+lda <- GraphLearner$new(standardize %>>%
+smote %>>% lrn("classif.lda",method="moment"))
+lda
+```
+
+## Interpretasi Model
+### Regresi Logistic
+```{r}
+# train model dengan keseluruhan data
+reglog$train(task = task_student)
+summary(reglog$model$classif.log_reg$model)
+```
+
+```{r}
+broom::tidy(reglog$model$classif.log_reg$model)
+```
+
+```{r}
+broom::tidy(reglog$model$classif.log_reg$model) %>%
+mutate(OddsRatio = exp(estimate))
+```
+
+```{r}
+# menampilkan informasi tambahan tentang model
+broom::glance(reglog$model$classif.log_reg$model)
+```
+
+## LDA
+```{r}
+# train model dengan keseluruhan data
+lda$train(task = task_student)
+coef_lda <- coef(lda$model$classif.lda$model)
+coef_lda
+```
+
+**Analisis : koefisien (coef_lda) model LDA yang telah dilatih (trained) dengan menggunakan seluruh data (task_student). Koefisien tersebut menunjukkan pengaruh setiap fitur terhadap pembagian kelas (kelas 1 atau kelas 2) oleh model LDA. Dalam kasus ini, fitur yang digunakan adalah usia (age) dan waktu belajar (studytime).**
+
+**Koefisien positif pada fitur usia (age) menunjukkan bahwa semakin tua siswa, semakin cenderung ia termasuk dalam kelas 1. Koefisien negatif pada fitur waktu belajar (studytime) menunjukkan bahwa semakin banyak waktu yang dihabiskan siswa untuk belajar, semakin cenderung ia termasuk dalam kelas 2.**
+
+```{r}
+predictedLD <- predict(lda$model$classif.lda$model,newdata = student)
+plotLD <- data.frame(predictedLD$x,class=predictedLD$class)
+glimpse(plotLD)
+```
+
+```{r}
+plotLD %>% count(class)
+```
+
+```{r}
+# membuat boxplot
+ggplot(plotLD, aes(x = class, y = LD1, fill = class)) +
+  geom_boxplot() +
+  labs(x = "Class", y = "LD1 Score", title = "Boxplot of LD1 Score by Class") +
+  scale_fill_manual(values = c("#00AFBB", "#E7B800"))  # custom warna untuk fill
+```
+Analisis : 
+
+- Terdapat perbedaan yang cukup signifikan antara distribusi skor LD1 untuk kelas 1 dan kelas 2.
+- Siswa yang termasuk dalam kelas 1 memiliki skor LD1 yang lebih tinggi secara keseluruhan dibandingkan dengan siswa yang termasuk dalam kelas 2.
+- Distribusi skor LD1 untuk kelas 1 memiliki range yang lebih besar dibandingkan dengan distribusi skor LD1 untuk kelas 2. Hal ini menunjukkan bahwa ada lebih banyak variasi dalam skor LD1 untuk siswa yang termasuk dalam kelas 1 dibandingkan dengan siswa yang termasuk dalam kelas 2.
+- Tidak ada pencilan (outlier) yang signifikan pada kedua distribusi skor LD1 untuk kedua kelas.
+
+# Analisis Perbandingan Resampling sebelum Vs sesudah
+Resampling adalah teknik statistik yang digunakan untuk menangani masalah ketidakseimbangan dalam dataset. Masalah ketidakseimbangan terjadi ketika proporsi kelas positif dan negatif tidak seimbang dalam dataset. Teknik resampling digunakan untuk mengubah proporsi kelas sehingga kelas positif dan negatif menjadi seimbang atau lebih seimbang.
+
+Sebelum resampling, dataset dapat memiliki jumlah sampel yang tidak seimbang antara kelas positif dan negatif. Ini dapat menyebabkan kinerja model yang kurang optimal dalam mengklasifikasikan kelas minoritas atau kelas positif. Hal tersebut terbukti pada kolom target sebelum di resampling maksimal akurasi hanya sekitar 80 persen, namun setelah resampling akurasi meningkat bahkan nilai akurasi bisa mencapai lebih dari 90 persen . Oleh karena itu, resampling terbukti dapat membantu meningkatkan kinerja model.
+
+

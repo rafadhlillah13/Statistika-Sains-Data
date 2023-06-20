@@ -1,0 +1,268 @@
+---
+title: "Tugas Kelompok SSD Modul 7"
+output: html_document
+date: "2023-05-03"
+---
+
+## Kelompok 1 RA
+1. Taufiqurrahmansyah Effendi _120450051 \
+2. Hanna Sajidah_121450060 \
+3. Patricia Gaby Rahmawati Tamba_121450099 \
+4. Rafi Fadhlillah_121450143_(KELAS RC) \
+5. Andini Nur Izzati_121450147 \
+6. Leonard Andreas Napitupulu_121450153
+
+### Import Library
+```{r}
+library(leaps) 
+library(glmnet) 
+library(kableExtra)
+library(ggplot2)
+library(ISLR)
+library(Metrics)
+library(rsq)
+library(tidyverse)
+library(reshape2)
+library(DataExplorer)
+library(skimr)
+library(gridExtra)
+library(ggplot2)
+library(caret)
+library(knitr)
+library(pls)
+library(gam)
+library(leaps)
+library(mgcv)
+```
+
+# About Dataset
+Link dataset : https://archive.ics.uci.edu/ml/datasets/Abalone
+
+```{r}
+abalone_attributes <- tribble(
+  ~Name, ~Data_Type, ~Measurement_Unit, ~Description,
+  "Sex", "nominal", "--", "M, F, and I (infant)",
+  "Length", "continuous", "mm", "Longest shell measurement",
+  "Diameter", "continuous", "mm", "Perpendicular to length",
+  "Height", "continuous", "mm", "With meat in shell",
+  "Whole weight", "continuous", "grams", "Whole abalone",
+  "Shucked weight", "continuous", "grams", "Weight of meat",
+  "Viscera weight", "continuous", "grams", "Gut weight (after bleeding)",
+  "Shell weight", "continuous", "grams", "After being dried",
+  "Rings", "integer", "--", "+1.5 gives the age in years"
+)
+
+abalone_attributes
+
+```
+
+
+### Import Dataset
+```{r}
+abalone <- read.csv("C:/Users/rafif/Downloads/abalone_original.csv", stringsAsFactors = TRUE)
+skim(abalone)
+```
+
+## i) Pengantar dataset (respons, variabel prediktor, jumlah observasi, dan jumlah prediktor)
+```{r}
+# Mengecek variabel respons
+print(names(abalone)[9])
+```
+
+```{r}
+# Mengecek variabel prediktor
+print(names(abalone)[-9])
+```
+
+```{r}
+# Menampilkan jumlah observasi dan variabel
+dim(abalone)
+```
+
+```{r}
+# Menampilkan daftar variabel
+names(abalone)
+```
+
+```{r}
+# Mengecek jumlah observasi
+print(nrow(abalone))
+# Mengecek jumlah observasi prediktor
+print(ncol(abalone)-1)
+```
+
+
+## ii) Pertanyaan yang ingin Anda jawab (Uraikan apa saja yang ingin anda tinjau)
+#### 1. Bagaimana hubungan antara atribut fisik dan jumlah cincin pada Abalone?
+#### 2. Bisakah atribut fisik digunakan untuk memprediksi jumlah cincin, dan dengan demikian, umur Abalone?
+#### 3. Apakah ada perbedaan dalam atribut fisik antara jenis kelamin Abalone yang berbeda?
+#### 4. Jelaskan metode yang digunakan 
+
+## iii) Pembersihan data (Jika terdapat missing value)
+```{r}
+#menghitung jumlah data kosong
+sum(is.na(abalone))
+```
+
+```{r}
+# Periksa apakah ada nilai duplikat di dalam dataset
+sum(duplicated(abalone))
+```
+
+```{r}
+plot_intro(data = abalone,
+           geom_label_args = list(size=2.5))
+```
+
+**Analisis : Plot diatas menunjukkan bahwa All Missing Columns dan Missing Observation sebesar 0% serta Complate Rows mencapai 100% artinya tidak ada nilai missing dalam dataset ini, maka dapat langsung ke proses selanjutnya.**
+
+## iv) Analisis deskriptif awal (ringkasan numerik dan gambar plot - jika diperlukan)
+```{r}
+# Membuat summary numerik
+summary(abalone)
+```
+
+```{r}
+# Histograms for each numeric attribute
+p1 <- ggplot(abalone, aes(x = diameter)) + 
+  geom_histogram() + 
+  ggtitle("Distribution of Diameter")
+
+p2 <- ggplot(abalone, aes(x = height)) + 
+  geom_histogram() + 
+  ggtitle("Distribution of Height")
+
+p3 <- ggplot(abalone, aes(x = whole.weight)) + 
+  geom_histogram() + 
+  ggtitle("Distribution of Whole Weight")
+
+p4 <- ggplot(abalone, aes(x = rings)) + 
+  geom_histogram() + 
+  ggtitle("Distribution of Rings")
+
+p5 <- ggplot(abalone, aes(x = shell.weight)) + 
+  geom_histogram() + 
+  ggtitle("Distribution of Shell Weight")
+
+# Scatterplot of diameter vs whole weight
+p6 <- ggplot(abalone, aes(x = diameter, y = whole.weight)) + 
+  geom_point() + 
+  ggtitle("Diameter vs Whole Weight")
+
+# Combine plots into a grid
+grid.arrange(p1, p2, p3, p4, p5, p6, ncol = 3)
+```
+
+**Analisis : Berdasarkan histogram-histogram yang disajikan, terlihat bahwa atribut-atribut numerik pada dataset Abalone memiliki distribusi yang cukup bervariasi. Atribut diameter dan tinggi memiliki distribusi yang mirip dengan distribusi normal, sedangkan atribut berat (whole weight, shucked weight, viscera weight, dan shell weight) dan atribut jumlah cincin (rings) memiliki distribusi yang sedikit miring (skewed). Scatterplot yang disajikan pada plot EDA menunjukkan adanya hubungan positif yang cukup kuat antara diameter dan berat lengkap (whole weight) pada Abalone. Semakin besar diameter, semakin berat pula kerangnya. **
+
+
+```{r}
+p1 <- ggplot(abalone, aes(y = diameter)) + 
+  geom_boxplot() + 
+  ggtitle("Boxplot of Diameter")
+
+# Boxplot for height
+p2 <- ggplot(abalone, aes(y = height)) + 
+  geom_boxplot() + 
+  ggtitle("Boxplot of Height")
+
+# Arrange the plots in a grid
+grid.arrange(p1, p2, ncol = 2)
+
+```
+
+**Analisis : Berdasarkan boxplot yang disajikan, terlihat bahwa atribut diameter dan tinggi pada Abalone tidak memiliki pencilan (outlier) yang signifikan, sedangkan atribut berat memiliki beberapa pencilan yang cukup jauh dari nilai-nilai lainnya.**
+
+```{r}
+ggplot(abalone, aes(x = sex, fill = sex)) + 
+  geom_bar() + 
+  ggtitle("Barplot of Sex")
+
+```
+
+`Sex / nominal / -- / M, F, and I (infant)`
+
+**Analisis : Dari barplot diatas terlihat bahwa jumlah sampel untuk setiap jenis kelamin pada Abalone cukup seimbang.**
+
+```{r}
+# Calculate correlation matrix
+cor_matrix <- cor(abalone[,c(2:8)])
+
+# Create heatmap
+ggplot(data = melt(cor_matrix), aes(x = Var1, y = Var2, fill = value)) + 
+  geom_tile() + 
+  scale_fill_gradient(low = "white", high = "steelblue") + 
+  ggtitle("Correlation Heatmap")
+
+```
+
+**Analisis : Heatmap yang disajikan menunjukkan bahwa atribut berat (whole weight, shucked weight, viscera weight, dan shell weight) memiliki korelasi yang cukup kuat satu sama lain. Selain itu, atribut diameter juga memiliki korelasi yang cukup kuat dengan atribut berat (whole weight, shucked weight, viscera weight, dan shell weight).**
+
+## v) Metode klasifikasi yang digunakan dan uji ANOVA
+```{r}
+# Split data into training and testing
+set.seed(123)
+trainIndex <- createDataPartition(abalone$rings, p = .8, 
+                                  list = FALSE, 
+                                  times = 1)
+trainData <- abalone[trainIndex, ]
+testData <- abalone[-trainIndex, ]
+```
+
+```{r}
+gamModel <- gam(rings ~ s(length) + s(diameter) + s(height) + 
+                  s(whole.weight) + s(shucked.weight) + s(viscera.weight) + 
+                  s(shell.weight) + sex, data = trainData)
+
+# Evaluate model
+summary(gamModel)
+```
+
+**Analisis : Pada koefisien parametrik menunjukkan  bahwa tidak ada perbedaan signifikan dalam jumlah rata-rata cincin antara jenis kelamin jantan dan tidak ada jenis kelamin. Pada koefisien non-parametrik diperoleh bahwa semua variabel numerik memiliki pengaruh yang signifikan terhadap variabel response rings. Hal ini terlihat dari nilai edf yang signifikan (p-value < 0.05). Koefisien R-sq.(adj) menunjukkan seberapa baik model dapat menjelaskan variasi data, dalam hal ini model GAM mampu menjelaskan 57,1% variansi data. GCV (Generalized Cross Validation) adalah suatu cara untuk mengukur kesalahan prediksi pada model GAM, semakin kecil GCV, semakin baik model dalam memprediksi data. Scale est. menunjukkan estimasi deviasi kesalahan dari model GAM. Semakin kecil nilai scale est., semakin baik model dalam menjelaskan data. Pada output di atas, nilai GCV sebesar 4.5432 dan scale est. sebesar 4.4999, yang menunjukkan bahwa model GAM cukup baik dalam memprediksi data**
+
+```{r}
+par(mfrow =c(1,2))
+plot(gamModel,shade=TRUE ,col ="blue")
+```
+
+```{r}
+GamModel <- lm(rings ~ ns(length) + ns(diameter) + ns(height) + 
+                  ns(whole.weight) + ns(shucked.weight) + ns(viscera.weight) + 
+                  ns(shell.weight) + sex, data = trainData)
+par(mfrow =c(1,2))
+plot.Gam(GamModel,se=TRUE ,col ="red")
+```
+
+```{r}
+# Menghitung prediksi pada data testing
+predictedRings <- predict(gamModel, newdata = testData)
+```
+
+#### RMSE dan R2
+```{r}
+# Menghitung RMSE pada data testing
+rmse <- rmse(testData$rings, predictedRings)
+rmse
+
+tss <- mean((testData$rings - mean(testData$rings))^2)
+rss <- 1 - rmse / tss
+rss
+```
+
+#### ANOVA
+```{r}
+# Menghitung uji ANOVA untuk GamModel
+anova(GamModel)
+# Menghitung uji ANOVA untuk gamModel
+anova(gamModel)
+```
+
+### vi) Kesimpulan dan diskusi (yang dirujuk pada pertanyaan yang ingin Anda jawab)
+
+> 1. Hasil analisis menunjukkan bahwa atribut fisik memiliki hubungan yang signifikan dengan jumlah cincin pada Abalone, dan GAM dapat digunakan untuk memprediksi jumlah cincin dengan tingkat akurasi yang cukup tinggi. Hasil uji ANOVA menunjukkan bahwa semua variabel prediktor memiliki pengaruh signifikan terhadap jumlah cincin.
+
+> 2. Terdapat perbedaan yang signifikan dalam atribut fisik antara jenis kelamin Abalone. Abalone jantan cenderung memiliki ukuran yang lebih besar dan berat yang lebih tinggi dibandingkan dengan Abalone betina dan infant. Hal ini dapat menjadi informasi penting dalam manajemen dan pengelolaan sumber daya Abalone.
+
+> 3. dataset ini hanya mencakup Abalone dari satu lokasi geografis tertentu dan tidak mencakup faktor lingkungan atau genetik yang dapat mempengaruhi atribut fisik dan jumlah cincin pada Abalone secara signifikan. Oleh karena itu, hasil analisis ini hanya dapat digeneralisasikan pada populasi Abalone yang serupa.
+
+> 4. Pada analisis ini, digunakan metode klasifikasi Generalized Additive Model (GAM) untuk memprediksi jumlah cincin pada Abalone berdasarkan atribut fisiknya. GAM adalah metode regresi non-parametrik yang dapat menangani hubungan non-linier dan interaksi antara variabel prediktor. Pada analisis ini, variabel prediktor yang digunakan adalah jenis kelamin, panjang, diameter, tinggi, berat keseluruhan, berat daging, berat organ dalam, dan berat cangkang. Dalam konteks dataset Abalone ini, GAM digunakan untuk memprediksi jumlah cincin (rings) pada Abalone berdasarkan atribut fisik dan jenis kelamin (sex).

@@ -1,0 +1,414 @@
+---
+title: "Tugas Kelompok SSD 8"
+output: html_document
+date: "2023-05-10"
+---
+
+## Kelompok 1 RA
+1. Taufiqurrahmansyah Effendi _120450051 \
+2. Hanna Sajidah_121450060 \
+3. Patricia Gaby Rahmawati Tamba_121450099 \
+4. Rafi Fadhlillah_121450143_(KELAS RC) \
+5. Andini Nur Izzati_121450147 \
+6. Leonard Andreas Napitupulu_121450153
+
+# About Dataset
+Link dataset : https://archive.ics.uci.edu/ml/datasets/Student%20Performance
+
+### Import Library
+```{r}
+library(leaps) # forward and backward selection
+library(glmnet) # ridge and lasso
+library(kableExtra)
+library(ggplot2)
+library(ISLR)
+library(DataExplorer)
+library(skimr)
+library(gridExtra)
+library(ggplot2)
+library(knitr)
+library(tree)
+library(ggdendro)
+library(randomForest)
+```
+
+### Import Dataset
+```{r}
+student <- read.csv("C:/Users/rafif/Downloads/student-mat.csv", stringsAsFactors = TRUE)
+skim(student)
+```
+
+## i) Pengantar dataset (respons, variabel prediktor, jumlah observasi, dan jumlah prediktor) 
+```{r}
+# Mengecek variabel respons
+print(names(student)[1])
+```
+
+```{r}
+# Mengecek variabel prediktor
+print(names(student)[-1])
+```
+
+```{r}
+# Menampilkan jumlah observasi dan variabel
+dim(student)
+```
+
+```{r}
+# Menampilkan daftar variabel
+names(student)
+```
+
+```{r}
+# Mengecek jumlah observasi
+print(nrow(student))
+# Mengecek jumlah observasi prediktor
+print(ncol(student)-1)
+```
+
+## ii) Pertanyaan yang ingin Anda jawab (Uraikan apa saja yang ingin anda tinjau) 
+#### 1. Bagaimana cara menerapkan metode tree, pruned tree, bagging tree dan random forest?
+#### 2. Bagaimana Perbandingan terhadap tree, pruned tree, bagging tree dan random forest? 
+#### 3.Manakah metode yang menurut anda terbaik?
+
+## iii) Pembersihan data (Jika terdapat missing value)
+```{r}
+#menghitung jumlah data kosong
+sum(is.na(student))
+```
+
+```{r}
+# Periksa apakah ada nilai duplikat di dalam dataset
+sum(duplicated(student))
+```
+
+```{r}
+plot_intro(data = student,
+           geom_label_args = list(size=2.5))
+```
+
+## iv) Analisis deskriptif awal (ringkasan numerik dan gambar plot - jika diperlukan) 
+### Ringkasan Numerik
+```{r}
+# Membuat ringkasan numerik
+summary(student)
+```
+
+## Plot Variabel Respons
+### Plot Jumlah Murid Masing Masing Sekolah
+```{r}
+a <-ggplot(student,aes(x= school, fill = school)) +
+  geom_bar() + scale_fill_manual(values=c("maroon", "steelblue"))
+a+ labs(x="school")
+```
+
+**Analisis : Plot bar diatas menunjukkan jumlah siswa pada masing-masing sekolah. Variabel school diplot pada sumbu x, sedangkan warna pada bar plot diisi dengan warna maroon untuk sekolah "GP" dan warna steelblue untuk sekolah "MS". Dapat dilihat bahwa jumlah siswa pada sekolah "GP" lebih banyak dibandingkan dengan jumlah siswa pada sekolah "MS".**
+
+## Plot Variabel Prediktor
+### Plot Alasan memilih sekolah berdasarkan umur
+```{r}
+ggplot(student, aes(x= age)) +
+  geom_histogram(aes(fill = factor(age)), color = "black", alpha = 0.7, bins = 8, width = 0.8) +
+  facet_wrap(~ reason) +
+  scale_fill_brewer(palette = "Set1") +
+  theme(strip.text = element_text(size =15, face = "bold"))
+```
+
+**Analisis : Plot diatas menunjukkan distribusi umur siswa yang memilih sekolah berdasarkan alasan yang berbeda. Plot dibagi menjadi beberapa panel berdasarkan variabel "reason". Setiap panel menunjukkan distribusi umur siswa yang memilih sekolah berdasarkan alasan tertentu. Warna pada histogram plot menunjukkan distribusi umur yang berbeda. Dapat dilihat bahwa alasan memilih sekolah berdasarkan "course" dan "reputation" lebih banyak dipilih oleh siswa dengan umur 15-18 tahun, sedangkan alasan "home" dan "other" lebih banyak dipilih oleh siswa dengan umur 16-19 tahun.**
+
+```{r}
+ggplot(student, aes(x=age, fill = reason)) + geom_density(alpha=0.3)
+```
+
+**Analisis : Plot diatas adalah sebuah density plot yang menunjukkan distribusi umur siswa yang memilih sekolah berdasarkan alasan yang berbeda. Dapat dilihat bahwa alasan memilih sekolah berdasarkan "course" dan "reputation" memiliki distribusi umur yang lebih condong pada 15-18 tahun, sedangkan alasan "home" dan "other" memiliki distribusi umur yang lebih condong pada 16-19 tahun. Density plot ini dapat memberikan gambaran yang lebih jelas mengenai distribusi umur siswa yang memilih sekolah berdasarkan alasan tertentu, dibandingkan dengan histogram plot yang hanya menunjukkan frekuensi siswa pada setiap rentang umur.**
+
+### Plot Perbandingan Siswa Laki-laki dan Perempuan
+```{r}
+dbar <- ggplot(student, aes(x=age, fill = sex)) + geom_bar(position = "fill", width = 0.9) +
+  ylab("proportion")
+```
+
+```{r}
+dpie <- ggplot(student, aes(x="", fill=sex)) + 
+  geom_bar(stat="count", position="fill") +
+  coord_polar(theta="y") +
+  ylab("Proportion") 
+```
+
+```{r}
+grid.arrange(dbar, dpie, ncol = 2)
+```
+
+**Analisis : Setiap stacked bar merepresentasikan proporsi dari jumlah siswa laki-laki dan perempuan pada setiap kelompok umur, sehingga dapat dilihat perbandingan antara jumlah siswa laki-laki dan perempuan pada setiap kelompok umur. Dalam hal ini, dapat dilihat bahwa proporsi siswa perempuan cenderung lebih banyak pada kelompok umur 15-18 tahun, sedangkan proporsi siswa laki-laki cenderung lebih banyak pada kelompok umur 19-22 tahun. Sedangkan jika dilihat dari pie chart diperoleh perbandingan antara jumlah siswa laki-laki dan perempuan secara visual. Dalam hal ini, proporsi siswa perempuan lebih banyak dibandingkan dengan siswa laki-laki.**
+
+```{r}
+ggplot(student, aes(x=age, fill = sex)) + geom_density(alpha=0.3)
+```
+
+**Analisis : Plot diatas adalah sebuah density plot yang menunjukkan distribusi umur siswa laki-laki dan perempuan. Distribusi umur siswa laki-laki ditunjukkan dengan warna biru, sedangkan distribusi umur siswa perempuan ditunjukkan dengan warna merah. Density plot ini dapat digunakan untuk melihat perbandingan distribusi umur antara siswa laki-laki dan perempuan, serta untuk menentukan apakah terdapat perbedaan signifikan dalam distribusi umur antara kedua kelompok gender.**
+
+### Plot Waktu Perjalanan Menuju Sekolah Vs Alasan Memilih Sekolah
+```{r}
+ggplot(student, aes(x=traveltime, fill = reason)) + geom_bar(position = "fill") +
+  ylab("proportion")
+```
+
+**Analisis : Plot diatas adalah sebuah stacked bar plot yang menunjukkan proporsi dari alasan memilih sekolah pada setiap kategori waktu tempuh ke sekolah pada dataset student. Setiap kategori alasan memilih sekolah ditunjukkan dengan warna yang berbeda pada stacked bar plot, sehingga dapat dilihat perbandingan antara proporsi alasan memilih sekolah pada setiap kategori waktu tempuh ke sekolah secara visual. Dalam hal ini, dapat dilihat bahwa proporsi siswa yang memilih sekolah karena faktor "course" lebih tinggi pada kategori waktu tempuh ke sekolah yang lebih lama, sedangkan proporsi siswa yang memilih sekolah karena faktor "other" lebih tinggi pada kategori waktu tempuh ke sekolah yang lebih pendek.**
+
+```{r}
+ggplot(student, aes(x=traveltime, fill = reason)) + geom_density(alpha=0.3)
+```
+
+**Analisis : Plot diatas adalah sebuah density plot yang menunjukkan distribusi waktu tempuh ke sekolah pada setiap alasan memilih sekolah pada dataset student. Setiap alasan memilih sekolah ditunjukkan dengan warna yang berbeda pada density plot, sehingga dapat dilihat perbandingan antara distribusi waktu tempuh ke sekolah pada setiap alasan memilih sekolah secara visual. Dalam hal ini, dapat dilihat bahwa distribusi waktu tempuh ke sekolah pada alasan memilih sekolah karena faktor "home" cenderung lebih pendek dibandingkan dengan alasan memilih sekolah karena faktor "course" atau "other". Sedangkan distribusi waktu tempuh ke sekolah pada alasan memilih sekolah karena faktor "reputation" dan "teacher" memiliki kurva yang lebih landai dan cenderung berada di antara distribusi dari alasan memilih sekolah lainnya.**
+
+### Plot Final Grade Vs Siswa yang Memiliki Fasilitas Internet
+```{r}
+plot_1 = ggplot(student, aes(G3,fill = factor(internet)))
+plot_2 = plot_1 + geom_histogram(stat="count")
+print(plot_2)
+```
+
+**Analisis : Plot diatas adalah sebuah histogram yang menunjukkan distribusi nilai G3 (nilai ujian terakhir) pada setiap siswa yang memiliki akses internet dan yang tidak memiliki akses internet. Setiap kelompok ditunjukkan dengan warna yang berbeda pada histogram, sehingga dapat dilihat perbandingan antara distribusi nilai G3 pada kedua kelompok secara visual. Dalam hal ini, dapat dilihat bahwa distribusi nilai G3 pada siswa yang memiliki akses internet cenderung lebih tinggi dibandingkan dengan siswa yang tidak memiliki akses internet.**
+
+### Plot Final Grade Vs Waktu Luang di Luar Jam Sekolah
+```{r}
+plot_1 = ggplot(student, aes(G3,fill = factor(freetime)))
+plot_2 = plot_1 + geom_histogram(stat="count")
+print(plot_2)
+```
+
+**`Note : from 1 - very low(minim waktu luang) to 5 - very high(banyak waktu luang)`**
+
+**Analisis :  Plot diatas adalah sebuah histogram yang menunjukkan distribusi nilai G3 (nilai ujian akhir) pada setiap siswa yang memiliki waktu luang yang berbeda-beda. Setiap kelompok waktu luang ditunjukkan dengan warna yang berbeda pada histogram, sehingga dapat dilihat perbandingan antara distribusi nilai G3 pada setiap kelompok waktu luang secara visual. Dalam hal ini, dapat dilihat bahwa distribusi nilai G3 pada siswa yang memiliki waktu luang antara sedikit hingga sedang cenderung lebih tinggi dibandingkan dengan siswa yang memiliki waktu luang yang sangat sedikit atau sangat banyak.**
+
+### Plot Perbandingan Antara Siswa yang Mendapatkan Extra Paid Class Vs Final Grade
+```{r}
+plot_1 = ggplot(student, aes(G3,fill = factor(paid)))
+plot_2 = plot_1 + geom_histogram(stat="count")
+print(plot_2)
+```
+
+**Analisis : Plot diatas menampilkan histogram dari distribusi nilai akhir "G3" untuk setiap tingkat variabel "paid". Sumbu-x mewakili rentang nilai untuk variabel "G3", dan sumbu-y mewakili hitungan jumlah siswa dalam setiap interval. Siswa yang memiliki kursus tambahan (paid=yes) cenderung memperoleh nilai yang lebih tinggi dibandingkan dengan siswa yang tidak memiliki kursus tambahan (paid=no). Terlihat dari jumlah siswa dengan nilai akhir di atas 15 yang mayoritas adalah siswa yang memiliki kursus tambahan.Jumlah siswa yang memiliki kursus tambahan lebih sedikit dibandingkan dengan siswa yang tidak memiliki kursus tambahan.**
+
+### Perbandingan Final Grade di 2 Sekolah
+```{r}
+plot_1 = ggplot(student, aes(G3,fill = factor(school)))
+plot_2 = plot_1 + geom_histogram(stat="count")
+print(plot_2)
+```
+
+**Analisis : Plot di atas menghasilkan histogram yang menunjukkan distribusi jumlah siswa di setiap nilai akhir (G3) untuk masing-masing sekolah (school).Sekolah GP memiliki jumlah siswa yang lebih banyak daripada sekolah MS di setiap nilai akhir.Distribusi nilai akhir di sekolah GP lebih condong ke nilai yang lebih tinggi daripada di sekolah MS.Banyak siswa di kedua sekolah yang memperoleh nilai akhir 10 (nilai maksimal yang dapat dicapai). Terdapat perbedaan jumlah siswa yang signifikan di setiap nilai akhir di kedua sekolah.**
+
+### Plot Perbandingan Waktu Belajar Antara Laki-laki dan Perempuan
+```{r}
+ggplot(student, aes(x=studytime, fill = sex)) + geom_bar(position = "fill") +
+  ylab("proportion")
+```
+
+**`[1] - <2 hours, [2] - 2 to 5 hours, [3] - 5 to 10 hours, or [4] - >10 hours`**
+
+**Analisis : Plot di atas menghasilkan stacked bar plot yang menunjukkan proporsi siswa perempuan dan laki-laki untuk setiap level waktu belajar (studytime). Proporsi siswa perempuan yang belajar kurang dari 2 jam per minggu lebih tinggi daripada laki-laki, sementara proporsi laki-laki yang belajar lebih dari 4 jam per minggu lebih tinggi daripada perempuan. Secara keseluruhan, proporsi siswa perempuan yang belajar lebih lama (3-4 jam dan lebih dari 4 jam per minggu) lebih tinggi daripada laki-laki. Proporsi siswa laki-laki dan perempuan yang tidak belajar (0 jam per minggu) hampir sama.**
+
+```{r}
+ggplot(student, aes(x=studytime, fill = sex)) + geom_density(alpha=0.3)
+```
+
+**Analisis : di atas menghasilkan density plot yang menunjukkan distribusi waktu belajar (studytime) untuk siswa perempuan dan laki-laki dalam dataset. Terdapat lebih banyak siswa perempuan daripada laki-laki dalam dataset. Distribusi waktu belajar siswa perempuan lebih condong ke nilai yang lebih tinggi daripada laki-laki, dengan puncak distribusi pada 2-3 jam per minggu. Distribusi waktu belajar siswa laki-laki lebih landai dan lebih merata, dengan puncak distribusi pada 1-2 jam per minggu. Terlihat perbedaan yang signifikan dalam distribusi waktu belajar antara siswa perempuan dan laki-laki.**
+
+### Perbandingan Final Grade Laki-laki Vs Perempuan
+```{r}
+ggplot(student, aes(x=G3, fill = sex)) + geom_bar(position = "fill") +
+  ylab("proportion")
+```
+
+**Analisis : Plot di atas menghasilkan stacked bar plot yang menunjukkan proporsi siswa perempuan dan laki-laki untuk setiap nilai akhir (G3). Proporsi siswa perempuan yang memperoleh nilai akhir lebih tinggi daripada laki-laki. Proporsi siswa perempuan yang memperoleh nilai akhir antara 15-20 (nilai tertinggi) lebih tinggi daripada laki-laki. Proporsi siswa laki-laki yang memperoleh nilai akhir antara 0-10 lebih tinggi daripada perempuan. Terlihat perbedaan yang signifikan dalam distribusi nilai akhir antara siswa perempuan dan laki-laki.**
+
+
+```{r}
+ggplot(student, aes(x=G3, fill = sex)) + geom_density(alpha=0.3)
+```
+
+**Analisis : Plot di atas menghasilkan density plot yang menunjukkan distribusi nilai akhir (G3) untuk siswa perempuan dan laki-laki dalam dataset. Distribusi nilai akhir siswa perempuan lebih condong ke nilai yang lebih tinggi daripada laki-laki, dengan puncak distribusi pada 15-18 (nilai yang tinggi). Distribusi nilai akhir siswa laki-laki lebih landai dan lebih merata, dengan puncak distribusi pada 10-14 (nilai yang sedang). Terlihat perbedaan yang signifikan dalam distribusi nilai akhir antara siswa perempuan dan laki-laki.**
+
+### Perbandingan First Period Grade Vs Second Period Grade Vs Final Grade
+```{r}
+plot11 <- ggplot(student) + 
+  geom_histogram(mapping=(aes(G1
+)),fill="darkgreen",col="white",binwidth = 1) + 
+  labs(x="First Period Grade
+", y="Ratio", title="First Period Grade") + theme(legend.position="none")
+```
+
+```{r}
+plot22 <- ggplot(student) + 
+  geom_histogram(mapping=(aes(G2
+)),fill="purple",col="white",binwidth = 1) + 
+  labs(x="Second Period Grade
+", y="Ratio", title="Second Period Grade") + theme(legend.position="none")
+```
+
+```{r}
+plot33 <- ggplot(student) + 
+  geom_histogram(mapping=(aes(G3
+)),fill="gold3",col="white",binwidth = 1) + 
+  labs(x="Final Grade
+", y="Ratio", title="Final Grade") + theme(legend.position="none")
+```
+
+```{r}
+grid.arrange(plot11, plot22, plot33, ncol=3)
+```
+
+**Analisis : Plot di atas menghasilkan tiga histogram yang membandingkan distribusi nilai pada tiga periode penilaian (G1, G2, dan G3) dalam dataset siswa. Distribusi nilai pada periode pertama (G1) memiliki rentang nilai yang paling sempit dan berpusat di sekitar nilai 10-14. Distribusi nilai pada periode kedua (G2) memiliki rentang nilai yang lebih lebar daripada periode pertama dan memiliki puncak yang sedikit lebih rendah dari periode pertama, dengan rentang nilai yang berpusat di sekitar 10-14. Distribusi nilai pada periode akhir (G3) memiliki rentang nilai yang lebih lebar daripada periode kedua dan memiliki puncak yang lebih rendah dari kedua periode sebelumnya, dengan rentang nilai yang berpusat di sekitar 10-16. Terdapat peningkatan nilai rata-rata antara periode pertama, kedua, dan akhir. Terlihat terdapat banyak siswa yang meningkatkan nilai mereka dari periode pertama ke periode kedua, tetapi kemudian nilai mereka stabil atau bahkan menurun di periode akhir.**
+
+## v) Metode klasifikasi yang digunakan 
+### Decision Tree
+
+```{r}
+set.seed(123)
+train <- sample(1:nrow(student), 0.6*nrow(Carseats))
+student.train = student[train, ]
+student.test = student[-train, ]
+kable(head(student.train))
+```
+
+```{r}
+tree.student = tree(G2 ~ ., data = student.train)
+summary(tree.student)
+```
+
+**analisis : Dari hasil output di atas, dapat dilihat bahwa model decision tree menggunakan variabel prediktor "G3", "guardian", "paid", dan "Medu" untuk membangun pohon keputusan."G3" adalah variabel prediktor yang paling penting dalam membangun model ini. Hal ini menunjukkan bahwa nilai akhir (G3) siswa sangat berpengaruh dalam menentukan hasil prediksi pada variabel target (G2). Jumlah simpul terminal pada pohon keputusan adalah 10, yang menunjukkan kompleksitas model. Residual mean deviance (deviasi rata-rata sisa) adalah 0.931, yang mengindikasikan tingkat ketepatan model dalam memprediksi data pada data latih. Distribusi residual menunjukkan bahwa rata-rata residual adalah 0, yang menunjukkan bahwa model secara keseluruhan cenderung mendekati nilai target yang sebenarnya. **
+
+```{r}
+plot(tree.student)
+text(tree.student,pretty = 0, cex=.75)
+```
+
+```{r}
+tree_data <- dendro_data(tree.student)
+ggplot() +
+geom_segment(data = tree_data$segments,
+aes(x = x, y = y, xend = xend, yend = yend)) +
+geom_text(data = subset(tree_data$labels,!is.na(x)),
+aes(x = x, y = y, label = label), size = 3, vjust = -0.5) +
+geom_text(data = subset(tree_data$labels,!is.na(x)),
+aes(x = x, y = y, label = label), size = 2, vjust = 1) + theme_dendro()
+```
+
+```{r}
+pred.student = predict(tree.student, newdata = student.test)
+MSE<-mean((student.test$G2 - pred.student)^2)
+paste("Test MSE of tree model = ", MSE)
+```
+
+### vi) Pilihanmodel - kesalahan uji (test error)/ validasi silang (cross validation) 
+
+```{r}
+set.seed(123)
+cv.student <- cv.tree(tree.student, FUN = prune.tree)
+size.min <- cv.student$size[which.min(cv.student$dev)]
+paste("Size with the lowest deviance: ", size.min)
+```
+
+```{r}
+plot(cv.student, type='b')
+points(size.min, cv.student$dev[size.min], col = "red", cex = 2, pch = 11)
+```
+
+```{r}
+Size<-cv.student$size
+Deviance<-cv.student$dev
+da<-data.frame(Size,Deviance) #buat data frame
+ggplot(da, aes(x=Size, y=Deviance))+ geom_line(colour='blue')+geom_point(colour='red') +geom_point(aes(cv.student$size[size.min], cv.student$dev[size.min]), col = "red", cex = 2, pch = 20)
+
+```
+
+### Pemangkasan(Pruning)
+```{r}
+prune.student <- prune.tree(tree.student, best=size.min)
+plot(prune.student)
+text(prune.student, pretty=0, cex=0.6)
+```
+
+```{r}
+pred.pruned <- predict(prune.student, student.test)
+purn_mse <- mean((student.test$G2 - pred.pruned)^2)
+paste("Test MSE of Pruned tree model = ", purn_mse)
+```
+
+### Pendekatan Bagging
+```{r}
+set.seed(123)
+bag.student <- randomForest(G2 ~ ., data = student.train, mtry = 10, ntree = 500, importance = TRUE)
+bag.pred <- predict(bag.student, student.test)
+MSE_BAG <- mean((student.test$G2 - bag.pred)^2)
+paste("Test MSE of Bagging tree model = ", MSE_BAG)
+```
+
+```{r}
+importance(bag.student)
+```
+
+```{r}
+plot(bag.student)
+```
+
+
+### Random Forest
+
+```{r}
+set.seed(123)
+rf.student <- randomForest(G2 ~ ., data = student, mtry = 3, ntree = 500, importance = TRUE)
+rf.pred <- predict(rf.student, newdata = student)
+paste("MSE test error of random forest=", mean((rf.student$y - rf.pred)^2))
+```
+
+```{r}
+importance(rf.student)
+```
+
+```{r}
+plot(rf.student)
+```
+
+
+### vii) Kesimpulan dan diskusi (yang dirujuk pada pertanyaan yang ingin Anda jawab) 
+
+#### 1.Cara menerapkan metode tree, pruned tree, bagging tree, dan random forest:
+
+- Decision Tree:  langkah awal bagi data menjadi dua bagian, yaitu data pelatihan (training data) dan data uji (test data). Data pelatihan akan digunakan untuk melatih model decision tree, sedangkan data uji akan digunakan untuk menguji kinerja model.Lalu membangun model dapat menggunakan library tree atau rpart
+- Pruned Tree: Setelah membangun decision tree, Anda dapat menggunakan metode pruning untuk memperbaiki kinerja model. Gunakan fungsi cv.tree untuk melakukan cross-validation dan memilih ukuran pohon terbaik. Kemudian, gunakan fungsi prune.tree untuk memangkas pohon dengan ukuran terpilih.
+- Bagging Tree: Menggunakan fungsi randomForest untuk membuat model bagging tree. Tetapkan nilai mtry sebagai jumlah prediktor yang dipilih secara acak untuk setiap pohon, dan ntree sebagai jumlah pohon yang ingin dibangun.
+- Random Forest: Mirip dengan bagging tree, dapat menggunakan fungsi randomForest untuk membuat model random forest. Atur juga mtry sebagai jumlah prediktor yang dipilih secara acak untuk setiap pohon, dan ntree sebagai jumlah pohon yang ingin dibangun.
+
+#### 2. Bagaimana Perbandingan terhadap tree, pruned tree, bagging tree dan random forest?
+
+```{r}
+# Define the MSE values
+mse_values <- c(3.62276307682946, 3.62276307682946, 2.43627843577061, 1.14817134687909)
+
+# Define the model names
+model_names <- c("Tree", "Pruned Tree", "Bagging Tree", "Random Forest")
+
+# Create the bar plot
+barplot(mse_values, names.arg = model_names, xlab = "Model", ylab = "Test MSE", 
+        main = "Comparison of Test MSE", col = "steelblue")
+
+```
+
+- Decision Tree: Decision tree adalah model yang mudah dipahami dan dapat memberikan wawasan tentang hubungan antara prediktor dan respons. Namun, biasanya cenderung overfitting dan tidak memperhatikan korelasi antara prediktor. Hal tersebut terlihat dari nilai errornya yang masih cukup tinggi diantara keempat metode lainnya
+- Pruned Tree: Pruned tree adalah decision tree yang telah dipangkas untuk mengurangi overfitting. Dengan memangkas pohon, model dapat menjadi lebih umum dan memiliki performa yang lebih baik pada data baru. Dilihat dari perbandingan MSE dengan decision tree terlihat tidak ada perbedaan MSE hal ini dikarenakan dataset yang digunakan tidak besar, mengurangi paksa pohon juga dapat memperbesar kesalahan atau error yang dihasilkan sehingga hasil pruned tree tidak ada perbedaan dengan metode sebelumnya
+- Bagging Tree: Bagging tree adalah metode yang membangun banyak pohon secara paralel, di mana setiap pohon dilatih pada sampel acak dari data pelatihan. Hasil prediksi dari semua pohon diambil dan dikombinasikan untuk menghasilkan prediksi akhir. Ini membantu mengurangi varians dan overfitting. Dilihat dari MSE bagging tree memiliki nilai MSE yang lebih rendah dari 2 metode sebelumnya
+- Random Forest: Random forest adalah pengembangan dari bagging tree yang juga mengambil subset acak dari prediktor pada setiap pohon. Dengan cara ini, random forest menggabungkan kekuatan ensemble dan memperhitungkan korelasi antar prediktor. Dilihat dari perbandingan MSE keempat metode Random Forest merupakan metode dengan kesalahan error terkecil dengan nilai MSE 1.14817134687909
+
+#### 3.Manakah metode yang menurut anda terbaik?
+Untuk menentukan metode yang terbaik, kita perlu memperhatikan nilai Mean Squared Error (MSE) dari setiap metode. Semakin rendah nilai MSE, semakin baik performa model.
+
+Dalam kasus ini, berdasarkan nilai MSE yang diberikan:
+
+- Tree: MSE = 3.62276307682946
+- Pruned Tree: MSE = 3.62276307682946
+- Bagging Tree: MSE = 2.43627843577061
+- Random Forest: MSE = 1.14817134687909
+
+Dari hasil tersebut, terlihat bahwa Random Forest memiliki MSE terendah yaitu 1.14817134687909, yang berarti memiliki performa prediksi yang lebih baik dibandingkan metode lainnya. Oleh karena itu, dalam konteks ini, Random Forest dapat dianggap sebagai metode terbaik untuk memodelkan dan memprediksi data yang digunakan berdasarkan nilai MSE yang telah di uji sebelumnya.

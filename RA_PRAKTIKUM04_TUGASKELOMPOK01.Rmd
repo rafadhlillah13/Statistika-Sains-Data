@@ -1,0 +1,625 @@
+---
+title: "Tugas Kelompok SSD 4"
+output: html_document
+date: "2023-04-03"
+---
+
+## Kelompok 1 RA
+1. Taufiqurrahmansyah Effendi _120450051 \
+2. Hanna Sajidah_121450060 \
+3. Patricia Gaby Rahmawati Tamba_121450099 \
+4. Rafi Fadhlillah_121450143_(KELAS RC) \
+5. Andini Nur Izzati_121450147 \
+6. Leonard Andreas Napitupulu_121450153
+
+# About Dataset
+Link dataset : https://archive.ics.uci.edu/ml/datasets/Student%20Performance
+
+### Import Library
+```{r}
+library(leaps) # forward and backward selection
+library(glmnet) # ridge and lasso
+library(kableExtra)
+library(ggplot2)
+library(ISLR)
+library(DataExplorer)
+library(skimr)
+library(gridExtra)
+library(ggplot2)
+library(knitr)
+```
+
+### Import Dataset
+```{r}
+student <- read.csv("C:/Users/rafif/Downloads/student-mat.csv", stringsAsFactors = TRUE)
+skim(student)
+```
+
+## i) Pengantar dataset (respons, variabel prediktor, jumlah observasi, dan jumlah prediktor) 
+```{r}
+# Mengecek variabel respons
+print(names(student)[1])
+```
+
+```{r}
+# Mengecek variabel prediktor
+print(names(student)[-1])
+```
+
+```{r}
+# Menampilkan jumlah observasi dan variabel
+dim(student)
+```
+
+```{r}
+# Menampilkan daftar variabel
+names(student)
+```
+
+```{r}
+# Mengecek jumlah observasi
+print(nrow(student))
+# Mengecek jumlah observasi prediktor
+print(ncol(student)-1)
+```
+
+## ii) Pertanyaan yang ingin Anda jawab (Uraikan apa saja yang ingin anda tinjau) 
+#### 1. Bagaimana cara menerapkan metode regresi seperti  best subset selection, ridge dan lasso regresi.
+#### 2. Bagaimana Perbandingan terhadap model subset selection, forward and backward selection, ridge regresi dan lasso regresi? 
+#### 3. Pilih metode yang menurut anda terbaik, Apakah model yang Anda pilih melibatkan semua fitur dalam kumpulan data?
+
+## iii) Pembersihan data (Jika terdapat missing value)
+```{r}
+#menghitung jumlah data kosong
+sum(is.na(student))
+```
+
+```{r}
+# Periksa apakah ada nilai duplikat di dalam dataset
+sum(duplicated(student))
+```
+
+```{r}
+plot_intro(data = student,
+           geom_label_args = list(size=2.5))
+```
+
+## iv) Analisis deskriptif awal (ringkasan numerik dan gambar plot - jika diperlukan) 
+### Ringkasan Numerik
+```{r}
+# Membuat ringkasan numerik
+summary(student)
+```
+
+## Plot Variabel Respons
+### Plot Jumlah Murid Masing Masing Sekolah
+```{r}
+a <-ggplot(student,aes(x= school, fill = school)) +
+  geom_bar() + scale_fill_manual(values=c("maroon", "steelblue"))
+a+ labs(x="school")
+```
+
+**Analisis : Plot bar diatas menunjukkan jumlah siswa pada masing-masing sekolah. Variabel school diplot pada sumbu x, sedangkan warna pada bar plot diisi dengan warna maroon untuk sekolah "GP" dan warna steelblue untuk sekolah "MS". Dapat dilihat bahwa jumlah siswa pada sekolah "GP" lebih banyak dibandingkan dengan jumlah siswa pada sekolah "MS".**
+
+## Plot Variabel Prediktor
+### Plot Alasan memilih sekolah berdasarkan umur
+```{r}
+ggplot(student, aes(x= age)) +
+  geom_histogram(aes(fill = factor(age)), color = "black", alpha = 0.7, bins = 8, width = 0.8) +
+  facet_wrap(~ reason) +
+  scale_fill_brewer(palette = "Set1") +
+  theme(strip.text = element_text(size =15, face = "bold"))
+```
+
+**Analisis : Plot diatas menunjukkan distribusi umur siswa yang memilih sekolah berdasarkan alasan yang berbeda. Plot dibagi menjadi beberapa panel berdasarkan variabel "reason". Setiap panel menunjukkan distribusi umur siswa yang memilih sekolah berdasarkan alasan tertentu. Warna pada histogram plot menunjukkan distribusi umur yang berbeda. Dapat dilihat bahwa alasan memilih sekolah berdasarkan "course" dan "reputation" lebih banyak dipilih oleh siswa dengan umur 15-18 tahun, sedangkan alasan "home" dan "other" lebih banyak dipilih oleh siswa dengan umur 16-19 tahun.**
+
+```{r}
+ggplot(student, aes(x=age, fill = reason)) + geom_density(alpha=0.3)
+```
+
+**Analisis : Plot diatas adalah sebuah density plot yang menunjukkan distribusi umur siswa yang memilih sekolah berdasarkan alasan yang berbeda. Dapat dilihat bahwa alasan memilih sekolah berdasarkan "course" dan "reputation" memiliki distribusi umur yang lebih condong pada 15-18 tahun, sedangkan alasan "home" dan "other" memiliki distribusi umur yang lebih condong pada 16-19 tahun. Density plot ini dapat memberikan gambaran yang lebih jelas mengenai distribusi umur siswa yang memilih sekolah berdasarkan alasan tertentu, dibandingkan dengan histogram plot yang hanya menunjukkan frekuensi siswa pada setiap rentang umur.**
+
+### Plot Perbandingan Siswa Laki-laki dan Perempuan
+```{r}
+dbar <- ggplot(student, aes(x=age, fill = sex)) + geom_bar(position = "fill", width = 0.9) +
+  ylab("proportion")
+```
+
+```{r}
+dpie <- ggplot(student, aes(x="", fill=sex)) + 
+  geom_bar(stat="count", position="fill") +
+  coord_polar(theta="y") +
+  ylab("Proportion") 
+```
+
+```{r}
+grid.arrange(dbar, dpie, ncol = 2)
+```
+
+**Analisis : Setiap stacked bar merepresentasikan proporsi dari jumlah siswa laki-laki dan perempuan pada setiap kelompok umur, sehingga dapat dilihat perbandingan antara jumlah siswa laki-laki dan perempuan pada setiap kelompok umur. Dalam hal ini, dapat dilihat bahwa proporsi siswa perempuan cenderung lebih banyak pada kelompok umur 15-18 tahun, sedangkan proporsi siswa laki-laki cenderung lebih banyak pada kelompok umur 19-22 tahun. Sedangkan jika dilihat dari pie chart diperoleh perbandingan antara jumlah siswa laki-laki dan perempuan secara visual. Dalam hal ini, proporsi siswa perempuan lebih banyak dibandingkan dengan siswa laki-laki.**
+
+```{r}
+ggplot(student, aes(x=age, fill = sex)) + geom_density(alpha=0.3)
+```
+
+**Analisis : Plot diatas adalah sebuah density plot yang menunjukkan distribusi umur siswa laki-laki dan perempuan. Distribusi umur siswa laki-laki ditunjukkan dengan warna biru, sedangkan distribusi umur siswa perempuan ditunjukkan dengan warna merah. Density plot ini dapat digunakan untuk melihat perbandingan distribusi umur antara siswa laki-laki dan perempuan, serta untuk menentukan apakah terdapat perbedaan signifikan dalam distribusi umur antara kedua kelompok gender.**
+
+### Plot Waktu Perjalanan Menuju Sekolah Vs Alasan Memilih Sekolah
+```{r}
+ggplot(student, aes(x=traveltime, fill = reason)) + geom_bar(position = "fill") +
+  ylab("proportion")
+```
+
+**Analisis : Plot diatas adalah sebuah stacked bar plot yang menunjukkan proporsi dari alasan memilih sekolah pada setiap kategori waktu tempuh ke sekolah pada dataset student. Setiap kategori alasan memilih sekolah ditunjukkan dengan warna yang berbeda pada stacked bar plot, sehingga dapat dilihat perbandingan antara proporsi alasan memilih sekolah pada setiap kategori waktu tempuh ke sekolah secara visual. Dalam hal ini, dapat dilihat bahwa proporsi siswa yang memilih sekolah karena faktor "course" lebih tinggi pada kategori waktu tempuh ke sekolah yang lebih lama, sedangkan proporsi siswa yang memilih sekolah karena faktor "other" lebih tinggi pada kategori waktu tempuh ke sekolah yang lebih pendek.**
+
+```{r}
+ggplot(student, aes(x=traveltime, fill = reason)) + geom_density(alpha=0.3)
+```
+
+**Analisis : Plot diatas adalah sebuah density plot yang menunjukkan distribusi waktu tempuh ke sekolah pada setiap alasan memilih sekolah pada dataset student. Setiap alasan memilih sekolah ditunjukkan dengan warna yang berbeda pada density plot, sehingga dapat dilihat perbandingan antara distribusi waktu tempuh ke sekolah pada setiap alasan memilih sekolah secara visual. Dalam hal ini, dapat dilihat bahwa distribusi waktu tempuh ke sekolah pada alasan memilih sekolah karena faktor "home" cenderung lebih pendek dibandingkan dengan alasan memilih sekolah karena faktor "course" atau "other". Sedangkan distribusi waktu tempuh ke sekolah pada alasan memilih sekolah karena faktor "reputation" dan "teacher" memiliki kurva yang lebih landai dan cenderung berada di antara distribusi dari alasan memilih sekolah lainnya.**
+
+### Plot Final Grade Vs Siswa yang Memiliki Fasilitas Internet
+```{r}
+plot_1 = ggplot(student, aes(G3,fill = factor(internet)))
+plot_2 = plot_1 + geom_histogram(stat="count")
+print(plot_2)
+```
+
+**Analisis : Plot diatas adalah sebuah histogram yang menunjukkan distribusi nilai G3 (nilai ujian terakhir) pada setiap siswa yang memiliki akses internet dan yang tidak memiliki akses internet. Setiap kelompok ditunjukkan dengan warna yang berbeda pada histogram, sehingga dapat dilihat perbandingan antara distribusi nilai G3 pada kedua kelompok secara visual. Dalam hal ini, dapat dilihat bahwa distribusi nilai G3 pada siswa yang memiliki akses internet cenderung lebih tinggi dibandingkan dengan siswa yang tidak memiliki akses internet.**
+
+### Plot Final Grade Vs Waktu Luang di Luar Jam Sekolah
+```{r}
+plot_1 = ggplot(student, aes(G3,fill = factor(freetime)))
+plot_2 = plot_1 + geom_histogram(stat="count")
+print(plot_2)
+```
+
+**`Note : from 1 - very low(minim waktu luang) to 5 - very high(banyak waktu luang)`**
+
+**Analisis :  Plot diatas adalah sebuah histogram yang menunjukkan distribusi nilai G3 (nilai ujian akhir) pada setiap siswa yang memiliki waktu luang yang berbeda-beda. Setiap kelompok waktu luang ditunjukkan dengan warna yang berbeda pada histogram, sehingga dapat dilihat perbandingan antara distribusi nilai G3 pada setiap kelompok waktu luang secara visual. Dalam hal ini, dapat dilihat bahwa distribusi nilai G3 pada siswa yang memiliki waktu luang antara sedikit hingga sedang cenderung lebih tinggi dibandingkan dengan siswa yang memiliki waktu luang yang sangat sedikit atau sangat banyak.**
+
+### Plot Perbandingan Antara Siswa yang Mendapatkan Extra Paid Class Vs Final Grade
+```{r}
+plot_1 = ggplot(student, aes(G3,fill = factor(paid)))
+plot_2 = plot_1 + geom_histogram(stat="count")
+print(plot_2)
+```
+
+**Analisis : Plot diatas menampilkan histogram dari distribusi nilai akhir "G3" untuk setiap tingkat variabel "paid". Sumbu-x mewakili rentang nilai untuk variabel "G3", dan sumbu-y mewakili hitungan jumlah siswa dalam setiap interval. Siswa yang memiliki kursus tambahan (paid=yes) cenderung memperoleh nilai yang lebih tinggi dibandingkan dengan siswa yang tidak memiliki kursus tambahan (paid=no). Terlihat dari jumlah siswa dengan nilai akhir di atas 15 yang mayoritas adalah siswa yang memiliki kursus tambahan.Jumlah siswa yang memiliki kursus tambahan lebih sedikit dibandingkan dengan siswa yang tidak memiliki kursus tambahan.**
+
+### Perbandingan Final Grade di 2 Sekolah
+```{r}
+plot_1 = ggplot(student, aes(G3,fill = factor(school)))
+plot_2 = plot_1 + geom_histogram(stat="count")
+print(plot_2)
+```
+
+**Analisis : Plot di atas menghasilkan histogram yang menunjukkan distribusi jumlah siswa di setiap nilai akhir (G3) untuk masing-masing sekolah (school).Sekolah GP memiliki jumlah siswa yang lebih banyak daripada sekolah MS di setiap nilai akhir.Distribusi nilai akhir di sekolah GP lebih condong ke nilai yang lebih tinggi daripada di sekolah MS.Banyak siswa di kedua sekolah yang memperoleh nilai akhir 10 (nilai maksimal yang dapat dicapai). Terdapat perbedaan jumlah siswa yang signifikan di setiap nilai akhir di kedua sekolah.**
+
+### Plot Perbandingan Waktu Belajar Antara Laki-laki dan Perempuan
+```{r}
+ggplot(student, aes(x=studytime, fill = sex)) + geom_bar(position = "fill") +
+  ylab("proportion")
+```
+
+**`[1] - <2 hours, [2] - 2 to 5 hours, [3] - 5 to 10 hours, or [4] - >10 hours`**
+
+**Analisis : Plot di atas menghasilkan stacked bar plot yang menunjukkan proporsi siswa perempuan dan laki-laki untuk setiap level waktu belajar (studytime). Proporsi siswa perempuan yang belajar kurang dari 2 jam per minggu lebih tinggi daripada laki-laki, sementara proporsi laki-laki yang belajar lebih dari 4 jam per minggu lebih tinggi daripada perempuan. Secara keseluruhan, proporsi siswa perempuan yang belajar lebih lama (3-4 jam dan lebih dari 4 jam per minggu) lebih tinggi daripada laki-laki. Proporsi siswa laki-laki dan perempuan yang tidak belajar (0 jam per minggu) hampir sama.**
+
+```{r}
+ggplot(student, aes(x=studytime, fill = sex)) + geom_density(alpha=0.3)
+```
+
+**Analisis : di atas menghasilkan density plot yang menunjukkan distribusi waktu belajar (studytime) untuk siswa perempuan dan laki-laki dalam dataset. Terdapat lebih banyak siswa perempuan daripada laki-laki dalam dataset. Distribusi waktu belajar siswa perempuan lebih condong ke nilai yang lebih tinggi daripada laki-laki, dengan puncak distribusi pada 2-3 jam per minggu. Distribusi waktu belajar siswa laki-laki lebih landai dan lebih merata, dengan puncak distribusi pada 1-2 jam per minggu. Terlihat perbedaan yang signifikan dalam distribusi waktu belajar antara siswa perempuan dan laki-laki.**
+
+### Perbandingan Final Grade Laki-laki Vs Perempuan
+```{r}
+ggplot(student, aes(x=G3, fill = sex)) + geom_bar(position = "fill") +
+  ylab("proportion")
+```
+
+**Analisis : Plot di atas menghasilkan stacked bar plot yang menunjukkan proporsi siswa perempuan dan laki-laki untuk setiap nilai akhir (G3). Proporsi siswa perempuan yang memperoleh nilai akhir lebih tinggi daripada laki-laki. Proporsi siswa perempuan yang memperoleh nilai akhir antara 15-20 (nilai tertinggi) lebih tinggi daripada laki-laki. Proporsi siswa laki-laki yang memperoleh nilai akhir antara 0-10 lebih tinggi daripada perempuan. Terlihat perbedaan yang signifikan dalam distribusi nilai akhir antara siswa perempuan dan laki-laki.**
+
+
+```{r}
+ggplot(student, aes(x=G3, fill = sex)) + geom_density(alpha=0.3)
+```
+
+**Analisis : Plot di atas menghasilkan density plot yang menunjukkan distribusi nilai akhir (G3) untuk siswa perempuan dan laki-laki dalam dataset. Distribusi nilai akhir siswa perempuan lebih condong ke nilai yang lebih tinggi daripada laki-laki, dengan puncak distribusi pada 15-18 (nilai yang tinggi). Distribusi nilai akhir siswa laki-laki lebih landai dan lebih merata, dengan puncak distribusi pada 10-14 (nilai yang sedang). Terlihat perbedaan yang signifikan dalam distribusi nilai akhir antara siswa perempuan dan laki-laki.**
+
+### Perbandingan First Period Grade Vs Second Period Grade Vs Final Grade
+```{r}
+plot11 <- ggplot(student) + 
+  geom_histogram(mapping=(aes(G1
+)),fill="darkgreen",col="white",binwidth = 1) + 
+  labs(x="First Period Grade
+", y="Ratio", title="First Period Grade") + theme(legend.position="none")
+```
+
+```{r}
+plot22 <- ggplot(student) + 
+  geom_histogram(mapping=(aes(G2
+)),fill="purple",col="white",binwidth = 1) + 
+  labs(x="Second Period Grade
+", y="Ratio", title="Second Period Grade") + theme(legend.position="none")
+```
+
+```{r}
+plot33 <- ggplot(student) + 
+  geom_histogram(mapping=(aes(G3
+)),fill="gold3",col="white",binwidth = 1) + 
+  labs(x="Final Grade
+", y="Ratio", title="Final Grade") + theme(legend.position="none")
+```
+
+```{r}
+grid.arrange(plot11, plot22, plot33, ncol=3)
+```
+
+**Analisis : Plot di atas menghasilkan tiga histogram yang membandingkan distribusi nilai pada tiga periode penilaian (G1, G2, dan G3) dalam dataset siswa. Distribusi nilai pada periode pertama (G1) memiliki rentang nilai yang paling sempit dan berpusat di sekitar nilai 10-14. Distribusi nilai pada periode kedua (G2) memiliki rentang nilai yang lebih lebar daripada periode pertama dan memiliki puncak yang sedikit lebih rendah dari periode pertama, dengan rentang nilai yang berpusat di sekitar 10-14. Distribusi nilai pada periode akhir (G3) memiliki rentang nilai yang lebih lebar daripada periode kedua dan memiliki puncak yang lebih rendah dari kedua periode sebelumnya, dengan rentang nilai yang berpusat di sekitar 10-16. Terdapat peningkatan nilai rata-rata antara periode pertama, kedua, dan akhir. Terlihat terdapat banyak siswa yang meningkatkan nilai mereka dari periode pertama ke periode kedua, tetapi kemudian nilai mereka stabil atau bahkan menurun di periode akhir.**
+
+## v) Metode klasifikasi yang digunakan 
+### Subset Selection
+```{r}
+library(leaps)
+regfit.full=regsubsets(G3~., student)
+summary(regfit.full)
+```
+
+```{r}
+regfit.full=regsubsets(G3~., data=student, nvmax=8)
+reg.summary=summary(regfit.full)
+```
+
+```{r}
+names(reg.summary)
+```
+
+```{r}
+reg.summary$rsq
+```
+
+```{r}
+par(mfrow=c(2,2))
+plot(reg.summary$rss, xlab="Jumlah Variabel", ylab="RSS", type = "l")
+plot(reg.summary$adjr2, xlab="Jumlah Variabel", ylab="Adjusted RSq", type = "l")
+```
+
+```{r}
+which.max(reg.summary$adjr2)
+```
+
+```{r}
+plot(reg.summary$adjr2, xlab="Jumlah Variabel", ylab="Adjusted RSq", type = "l")
+points(8,reg.summary$adjr2[8], col="red", cex=2, pch=20)
+```
+
+```{r}
+plot(reg.summary$cp, xlab ="Jumlah variabel",ylab="Cp", type="l")
+```
+
+```{r}
+which.min(reg.summary$cp)
+```
+
+```{r}
+plot(reg.summary$bic, xlab ="Jumlah variabel",ylab="Cp", type="l")
+points(5, reg.summary$bic[5],col="red", cex=2, pch=20)
+```
+
+```{r}
+plot(regfit.full, scale="r2")
+```
+
+```{r}
+plot(regfit.full, scale="r2")
+```
+
+```{r}
+plot(regfit.full, scale="Cp")
+```
+
+```{r}
+plot(regfit.full, scale="Cp")
+```
+
+```{r}
+coef(regfit.full,5)
+```
+
+### Forward and Backward Stepwise Selection
+```{r}
+regfit.fwd=regsubsets(G3~.,data=student,nvmax=8,method="forward")
+summary(regfit.fwd)
+```
+
+```{r}
+regfit.bwd=regsubsets(G3~.,data=student,nvmax=8,method="backward")
+summary(regfit.bwd)
+```
+
+```{r}
+coef(regfit.full,6)
+```
+
+```{r}
+coef(regfit.bwd,6)
+```
+
+
+### Ridge Selection dan Lasso
+```{r}
+x=model.matrix(G3~.,student)[,-1]
+```
+
+
+```{r}
+y=student$G3
+```
+
+#### Ridge Regression
+```{r}
+library(Matrix)
+library(glmnet)
+```
+
+```{r}
+grid <- 10^seq(10, -2, length = 100)
+ridge.mod <- glmnet(x, y, alpha = 0, lambda = grid)
+```
+
+```{r}
+dim(coef(ridge.mod))
+```
+
+```{r}
+ridge.mod$lambda[50]
+```
+
+```{r}
+coef(ridge.mod)[,50]
+```
+
+```{r}
+sqrt(sum(coef(ridge.mod)[-1, 50]^2))
+```
+
+```{r}
+ridge.mod$lambda[60]
+```
+
+```{r}
+coef(ridge.mod)[,60]
+```
+
+```{r}
+sqrt(sum(coef(ridge.mod)[-1, 60]^2))
+```
+
+```{r}
+predict(ridge.mod,s=50,type="coefficients")[1:14,]
+```
+
+```{r}
+set.seed(1)
+train=sample(1:nrow(x),nrow(x)/2)
+test=(-train)
+y.test=y[test]
+```
+
+```{r}
+ridge.mod <- glmnet(x[train, ], y[train], alpha = 0, lambda = grid, thresh = 1e-12)
+ridge.pred <- predict(ridge.mod, s = 4, newx = x[test, ])
+mean((ridge.pred - y.test) ^ 2)
+```
+
+```{r}
+mean((mean(y[train]) - y.test) ^ 2)
+```
+
+```{r}
+ridge.pred=predict(ridge.mod, s=1e10, newx=x[test,])
+mean((ridge.pred-y.test)^2)
+```
+
+```{r}
+set.seed (1)
+cv.out =cv.glmnet (x[train ,],y[train],alpha =0)
+plot(cv.out)
+```
+
+```{r}
+bestlam =cv.out$lambda.min
+bestlam
+```
+
+```{r}
+ridge.pred=predict (ridge.mod ,s=bestlam ,newx=x[test,])
+mean(( ridge.pred -y.test)^2)
+```
+
+```{r}
+out=glmnet(x,y,alpha =0)
+predict(out ,type="coefficients",s=bestlam)[1:14,]
+```
+
+
+### Lasso
+```{r}
+lasso.mod=glmnet(x[train ,],y[train],alpha =1, lambda =grid)
+plot(lasso.mod)
+```
+
+```{r}
+set.seed (1)
+cv.out =cv.glmnet (x[train ,],y[train],alpha =1)
+plot(cv.out)
+```
+
+```{r}
+bestlam =cv.out$lambda.min
+lasso.pred=predict(lasso.mod ,s=bestlam ,newx=x[test,])
+mean(( lasso.pred -y.test)^2)
+```
+
+```{r}
+out=glmnet (x,y,alpha=1, lambda=grid)
+lasso.coef=predict (out ,type ="coefficients",s=bestlam)[1:14,]
+lasso.coef
+```
+
+### Cara Lain
+```{r}
+set.seed(1)
+trainid <- sample(1:nrow(student), nrow(student)/2)
+train <- student[trainid,]
+test <- student[-trainid,]
+xmat.train <- model.matrix(G3~., data=train)[,-1]
+xmat.test <- model.matrix(G3~., data=test)[,-1]
+str(student)
+```
+
+#### Ridge Regression Model
+```{r}
+fit.ridge <- cv.glmnet(xmat.train, train$G3, alpha=0)
+(lambda <- fit.ridge$lambda.min)  # optimal lambda
+```
+
+```{r}
+pred.ridge <- predict(fit.ridge, s=lambda, newx=xmat.train)
+err.ridge <- mean((test$G3[!is.na(pred.ridge)] - pred.ridge[!is.na(pred.ridge)])^2)  # test error
+```
+
+```{r}
+predict(fit.ridge, s=lambda, type="coefficients")
+```
+
+#### Lasso Regression Model
+```{r}
+fit.lasso <- cv.glmnet(xmat.train, train$G3, alpha=1)
+(lambda <- fit.lasso$lambda.min)  # optimal lambda
+```
+
+```{r}
+pred.lasso <- predict(fit.lasso, s=lambda, newx=xmat.test)
+(err.lasso <- mean((test$G3 - pred.lasso)^2))  # test error
+```
+
+```{r}
+predict(fit.lasso, s=lambda, type="coefficients")
+```
+
+#### Membuat fungsi subset selection
+```{r}
+predict.regsubsets <- function(object, newdata, id, ...){
+  form <- as.formula(object$call[[2]])
+  mat <- model.matrix(form, newdata)
+  coefi <- coef(object, id=id)
+  xvars <- names(coefi)
+  mat[,xvars]%*%coefi
+}
+```
+
+#### Forward Selection
+```{r}
+fit.fwd <- regsubsets(G3 ~ ., data=train, nvmax=ncol(train)-1, method="forward")
+fwd.summary <- summary(fit.fwd)
+err.fwd <- rep(NA, ncol(train)-1)
+for(i in 1:(ncol(train)-1)) {
+  pred.fwd <- predict(fit.fwd, test, id=i)
+  err.fwd[i] <- mean((pred.fwd - test$G3)^2)
+}
+```
+
+```{r}
+plot(err.fwd, type="b", main="Test MSE for Forward Selection", xlab="Number of Predictors")
+```
+
+```{r}
+which.min(err.fwd)
+```
+
+#### Backward Selection
+```{r}
+fit.bwd <- regsubsets(G3 ~ ., data=train, nvmax=ncol(student)-1)
+bwd.summary <- summary(fit.bwd)
+err.bwd <- rep(NA, ncol(train)-1)
+for(i in 1:(ncol(train)-1)) {
+  pred.bwd <- predict(fit.bwd, test, id=i)
+  err.bwd[i] <- mean((pred.bwd - test$G3)^2)
+}
+```
+
+```{r}
+plot(err.bwd, type="b", main="Test MSE for Backward Selection", xlab="Number of Predictors")
+```
+
+```{r}
+which.min(err.bwd)
+```
+
+```{r}
+par(mfrow=c(3,2))
+
+min.cp <- which.min(summary(fit.fwd)$cp)
+plot(summary(fit.fwd)$cp, xlab="Number of Poly(X)", ylab="Forward Selection Cp", type="l")
+points(min.cp, summary(fit.fwd)$cp[min.cp], col="red", pch=4, lwd=5)
+
+min.cp <- which.min(summary(fit.bwd)$cp)  
+plot(summary(fit.bwd)$cp, xlab="Number of Poly(X)", ylab="Backward Selection Cp", type="l")
+points(min.cp, summary(fit.bwd)$cp[min.cp], col="red", pch=4, lwd=5)
+
+min.bic <- which.min(summary(fit.fwd)$bic)  
+plot(summary(fit.fwd)$bic, xlab="Number of Poly(X)", ylab="Forward Selection BIC", type="l")
+points(min.bic, summary(fit.fwd)$bic[min.bic], col="red", pch=4, lwd=5)
+
+min.bic <- which.min(summary(fit.bwd)$bic)  
+plot(summary(fit.bwd)$bic, xlab="Number of Poly(X)", ylab="Backward Selection BIC", type="l")
+points(min.bic, summary(fit.bwd)$bic[min.bic], col="red", pch=4, lwd=5)
+
+min.adjr2 <- which.max(summary(fit.fwd)$adjr2)  
+plot(summary(fit.fwd)$adjr2, xlab="Number of Poly(X)", ylab="Forward Selection Adjusted R^2", type="l")
+points(min.adjr2, summary(fit.fwd)$adjr2[min.adjr2], col="red", pch=4, lwd=5)
+
+min.adjr2 <- which.max(summary(fit.bwd)$adjr2)  
+plot(summary(fit.bwd)$adjr2, xlab="Number of Poly(X)", ylab="Backward Selection Adjusted R^2", type="l")
+points(min.adjr2, summary(fit.bwd)$adjr2[min.adjr2], col="red", pch=4, lwd=5)
+```
+
+### vi) Pilihan model - kesalahan uji (test error)/ validasi silang (cross validation) 
+#### Menggunakan kesalahan uji (test error)
+```{r}
+err.ridge
+```
+
+```{r}
+err.lasso
+```
+
+```{r}
+err.fwd
+```
+
+```{r}
+mean(err.fwd)
+```
+
+```{r}
+err.bwd
+```
+
+```{r}
+mean(err.bwd)
+```
+
+### vii) Kesimpulan dan diskusi (yang dirujuk pada pertanyaan yang ingin Anda jawab) 
+> 1. Secara singkat, metode regresi seperti best subset selection, ridge, dan lasso regresi digunakan untuk mengembangkan model prediktif dari suatu data dengan variabel respon dan variabel prediktor. 
+- Best subset selection memilih subset variabel prediktor yang paling berkorelasi dengan variabel respon dengan membandingkan model yang dibangun dengan semua kombinasi variabel prediktor yang mungkin. 
+- Ridge regresi menambahkan bias ke model regresi untuk meningkatkan stabilitas dan kinerja prediksi, terutama saat terjadi multikolinearitas.
+- Lasso regresi juga menambahkan bias ke model regresi dan melakukan seleksi variabel prediktor yang paling berpengaruh, terutama saat terjadi multikolinearitas dan variabel prediktor yang tidak berpengaruh dapat dieliminasi dari model.
+
+> Untuk menerapkan metode ini, diperlukan software statistik seperti R dan nilai alpha atau jumlah variabel prediktor yang ingin diuji perlu ditentukan terlebih dahulu. Setelah itu, koefisien regresi dapat dihitung dengan menggunakan metode yang sesuai dan cross-validation digunakan untuk menentukan nilai alpha atau variabel prediktor yang optimal untuk model regresi.
+
+> 2. Berdasarkan nilai kesalahan uji (test error) yang dihasilkan, terlihat bahwa model lasso regresi memiliki nilai kesalahan uji yang paling rendah (err.lasso = 4.183929), diikuti oleh model forward selection dan backward selection (mean(err.fwd) = 4.430648 dan mean(err.bwd) = 4.431853). Model ridge regresi memiliki nilai kesalahan uji yang lebih tinggi (err.ridge = 39.46193).
+
+> 3. Dari hasil diatas, dapat disimpulkan bahwa model yang paling optimal untuk data yang dianalisis adalah model lasso regresi, karena memiliki nilai kesalahan uji yang paling rendah dibandingkan dengan model lainnya.  Regresi Lasso biasanya cenderung menghilangkan beberapa variabel yang dianggap tidak signifikan atau memiliki dampak kecil pada variabel respons, dengan menerapkan penalty L1 pada koefisien model. Oleh karena itu, kemungkinan besar model regresi Lasso tidak melibatkan semua fitur dalam kumpulan data karena pada kenyataannya tidak semua fitur atau variabel prediktor memiliki pengaruh signifikan terhadap variabel respon yang ingin diprediksi.
